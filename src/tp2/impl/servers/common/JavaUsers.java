@@ -18,11 +18,15 @@ import java.util.concurrent.Executors;
 import tp2.api.User;
 import tp2.api.service.java.Result;
 import tp2.api.service.java.Users;
+import tp2.impl.servers.dropbox.CreateDirectory;
+import tp2.impl.servers.dropbox.DeleteDirectoryOrFile;
 import util.Token;
 
 public class JavaUsers implements Users {
 	final protected Map<String, User> users = new ConcurrentHashMap<>();
 	final ExecutorService executor = Executors.newCachedThreadPool();
+	CreateDirectory cd = new CreateDirectory();
+	DeleteDirectoryOrFile ddof = new DeleteDirectoryOrFile();
 	
 	@Override
 	public Result<String> createUser(User user) {
@@ -34,8 +38,16 @@ public class JavaUsers implements Users {
 		
 		if (res != null)
 			return error(CONFLICT);
-		else
+		else{
+			try {
+				cd.execute("/"+userId);
+			} catch (Exception e) {
+				// Teoricamente nao acontece
+				e.printStackTrace();
+			}
 			return ok(userId);
+		}
+			
 	}
 
 	@Override
@@ -87,6 +99,14 @@ public class JavaUsers implements Users {
 				for( var uri : FilesClients.all())
 					FilesClients.get(uri).deleteUserFiles( userId, password);
 			});
+
+			try {
+				ddof.execute("/"+userId);
+			} catch (Exception e) {
+				// Teoricamente nao acontece
+				e.printStackTrace();
+			}
+
 			return ok(user);
 		}
 	}
