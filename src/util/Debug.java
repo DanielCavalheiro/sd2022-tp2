@@ -6,7 +6,7 @@ import java.util.logging.LogManager;
 import java.util.logging.Logger;
 
 public class Debug {
-	public static String TP1 = "tp1";
+	public static String TP2 = "tp2";
 			
 	static {
 		System.setProperty("java.util.logging.SimpleFormatter.format", "%4$s: %5$s\n");

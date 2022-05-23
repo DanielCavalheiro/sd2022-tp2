@@ -2,13 +2,13 @@ package test;
 
 import java.util.logging.Level;
 
-import tp1.api.User;
-import tp1.api.service.java.Directory;
-import tp1.api.service.java.Users;
-import tp1.impl.clients.Clients;
-import tp1.impl.servers.rest.DirectoryRestServer;
-import tp1.impl.servers.rest.FilesRestServer;
-import tp1.impl.servers.rest.UsersRestServer;
+import tp2.api.User;
+import tp2.api.service.java.Directory;
+import tp2.api.service.java.Users;
+import tp2.impl.clients.Clients;
+import tp2.impl.servers.rest.DirectoryRestServer;
+import tp2.impl.servers.rest.FilesRestServer;
+import tp2.impl.servers.rest.UsersRestServer;
 import util.Debug;
 
 public class Test {
