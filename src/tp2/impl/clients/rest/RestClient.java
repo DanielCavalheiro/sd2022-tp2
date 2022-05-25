@@ -5,6 +5,8 @@ import static tp2.api.service.java.Result.ok;
 
 import java.net.URI;
 
+import javax.net.ssl.HttpsURLConnection;
+
 import org.glassfish.jersey.client.ClientConfig;
 import org.glassfish.jersey.client.ClientProperties;
 
@@ -16,6 +18,7 @@ import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.core.Response.Status;
 import tp2.api.service.java.Result;
 import tp2.api.service.java.Result.ErrorCode;
+import tp2.impl.clients.common.InsecureHostnameVerifier;
 import tp2.impl.clients.common.RetryClient;
 
 /**
@@ -38,6 +41,9 @@ abstract class RestClient extends RetryClient {
 
 	public RestClient(URI uri, String path) {
 		this.uri = uri;
+
+		HttpsURLConnection.setDefaultHostnameVerifier(new InsecureHostnameVerifier());
+
 		this.config = new ClientConfig();
 		this.config.property(ClientProperties.CONNECT_TIMEOUT, CONNECT_TIMEOUT);
 		this.config.property(ClientProperties.READ_TIMEOUT, READ_TIMEOUT);
