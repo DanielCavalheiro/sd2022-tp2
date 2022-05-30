@@ -1,7 +1,5 @@
 package tp2.impl.servers.dropbox;
 
-import org.pac4j.scribe.builder.api.DropboxApi20;
-
 import com.github.scribejava.core.builder.ServiceBuilder;
 import com.github.scribejava.core.model.OAuth2AccessToken;
 import com.github.scribejava.core.model.OAuthRequest;
@@ -10,17 +8,21 @@ import com.github.scribejava.core.model.Verb;
 import com.github.scribejava.core.oauth.OAuth20Service;
 import com.google.gson.Gson;
 
-import tp2.impl.servers.dropbox.msgs.CreateFolderV2Args;
+import org.pac4j.scribe.builder.api.DropboxApi20;
 
-public class CreateDirectory {
+import tp2.impl.servers.dropbox.msgs.UploadArgs;
+
+public class UploadFile {
 
 	private static final String apiKey = "7xabutsco4qlge6";
 	private static final String apiSecret = "zlc0lxwg809kpf6";
 	private static final String accessTokenStr = "sl.BIk4bBiz95mlT5EsxFoBbRWWqHN-rcGhRSFNQWN-gv3lEeLbCA9NbKT6m9AangG7jNuU-rT3PvErnVhgBA-fLq5xUQHyNWvLDkaGvkGPKmxjpzfANNI18ZvdM_ey3h-1-BpoHZM";
 
-	private static final String CREATE_FOLDER_V2_URL = "https://api.dropboxapi.com/2/files/create_folder_v2";
+	private static final String UPLOAD_URL = "https://api.dropboxapi.com/2/files/upload";
+	private static final String WRITE_MODE = "overwrite";
 
 	private static final int HTTP_SUCCESS = 200;
+
 	private static final String CONTENT_TYPE_HDR = "Content-Type";
 	private static final String JSON_CONTENT_TYPE = "application/json; charset=utf-8";
 
@@ -28,40 +30,25 @@ public class CreateDirectory {
 	private final OAuth20Service service;
 	private final OAuth2AccessToken accessToken;
 
-	public CreateDirectory() {
+	public UploadFile() {
 		json = new Gson();
 		accessToken = new OAuth2AccessToken(accessTokenStr);
 		service = new ServiceBuilder(apiKey).apiSecret(apiSecret).build(DropboxApi20.INSTANCE);
 	}
 
-	public void execute(String directoryName) throws Exception {
+	public void execute(String path, byte[] content_hash) throws Exception {
 
-		var createFolder = new OAuthRequest(Verb.POST, CREATE_FOLDER_V2_URL);
-		createFolder.addHeader(CONTENT_TYPE_HDR, JSON_CONTENT_TYPE);
+		var upload = new OAuthRequest(Verb.POST, UPLOAD_URL);
+		upload.addHeader(CONTENT_TYPE_HDR, JSON_CONTENT_TYPE);
 
-		createFolder.setPayload(json.toJson(new CreateFolderV2Args(directoryName, false)));
+		upload.setPayload(json.toJson(new UploadArgs(path, WRITE_MODE, false, false, false, "hey yo")));
 
-		service.signRequest(accessToken, createFolder);
+		service.signRequest(accessToken, upload);
 
-		Response r = service.execute(createFolder);
+		Response r = service.execute(upload);
 		if (r.getCode() != HTTP_SUCCESS)
-			throw new RuntimeException(String.format("Failed to create directory: %s, Status: %d, \nReason: %s\n",
-					directoryName, r.getCode(), r.getBody()));
-	}
-
-	public static void main(String[] args) throws Exception {
-
-		// if( args.length != 1 ) {
-		// System.err.println("usage: java CreateDirectory <dir>");
-		// System.exit(0);
-		// }
-
-		var directory = "/newDirectory"; // args[0];
-
-		var cd = new CreateDirectory();
-
-		cd.execute(directory);
-		System.out.println("Directory '" + directory + "' created successfuly.");
+			throw new RuntimeException(String.format("Failed to upload file: %s, Status: %d, \nReason: %s\n", path,
+					r.getCode(), r.getBody()));
 	}
 
 }

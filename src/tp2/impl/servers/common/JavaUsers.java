@@ -18,48 +18,37 @@ import java.util.concurrent.Executors;
 import tp2.api.User;
 import tp2.api.service.java.Result;
 import tp2.api.service.java.Users;
-import tp2.impl.servers.dropbox.CreateDirectory;
-import tp2.impl.servers.dropbox.DeleteDirectoryOrFile;
+
 import util.Token;
 
 public class JavaUsers implements Users {
 	final protected Map<String, User> users = new ConcurrentHashMap<>();
 	final ExecutorService executor = Executors.newCachedThreadPool();
-	CreateDirectory cd = new CreateDirectory();
-	DeleteDirectoryOrFile ddof = new DeleteDirectoryOrFile();
-	
+
 	@Override
 	public Result<String> createUser(User user) {
-		if( badUser(user ))
-			return error( BAD_REQUEST );
-		
+		if (badUser(user))
+			return error(BAD_REQUEST);
+
 		var userId = user.getUserId();
 		var res = users.putIfAbsent(userId, user);
-		
+
 		if (res != null)
 			return error(CONFLICT);
-		else{
-			try {
-				cd.execute("/"+userId);
-			} catch (Exception e) {
-				// Teoricamente nao acontece
-				e.printStackTrace();
-			}
+		else
 			return ok(userId);
-		}
-			
 	}
 
 	@Override
 	public Result<User> getUser(String userId, String password) {
-		if (badParam(userId) )
+		if (badParam(userId))
 			return error(BAD_REQUEST);
-		
+
 		var user = users.get(userId);
-		
+
 		if (user == null)
 			return error(NOT_FOUND);
-		
+
 		if (badParam(password) || wrongPassword(user, password))
 			return error(FORBIDDEN);
 		else
@@ -70,10 +59,10 @@ public class JavaUsers implements Users {
 	public Result<User> updateUser(String userId, String password, User data) {
 
 		var user = users.get(userId);
-		
+
 		if (user == null)
 			return error(NOT_FOUND);
-		
+
 		if (badParam(password) || wrongPassword(user, password))
 			return error(FORBIDDEN);
 		else {
@@ -84,28 +73,21 @@ public class JavaUsers implements Users {
 
 	@Override
 	public Result<User> deleteUser(String userId, String password) {
-		
+
 		var user = users.get(userId);
-		
+
 		if (user == null)
 			return error(NOT_FOUND);
-		
+
 		if (badParam(password) || wrongPassword(user, password))
 			return error(FORBIDDEN);
 		else {
 			users.remove(userId);
-			executor.execute(()->{
+			executor.execute(() -> {
 				DirectoryClients.get().deleteUserFiles(userId, password, Token.get());
-				for( var uri : FilesClients.all())
-					FilesClients.get(uri).deleteUserFiles( userId, password);
+				for (var uri : FilesClients.all())
+					FilesClients.get(uri).deleteUserFiles(userId, password);
 			});
-
-			try {
-				ddof.execute("/"+userId);
-			} catch (Exception e) {
-				// Teoricamente nao acontece
-				e.printStackTrace();
-			}
 
 			return ok(user);
 		}
@@ -113,26 +95,27 @@ public class JavaUsers implements Users {
 
 	@Override
 	public Result<List<User>> searchUsers(String pattern) {
-		if( badParam( pattern))
+		if (badParam(pattern))
 			return error(BAD_REQUEST);
-					
+
 		var hits = users.values()
-			.stream()
-			.filter( u -> u.getFullName().toLowerCase().contains(pattern.toLowerCase()) )
-			.map( User::secureCopy )
-			.toList();
-		
+				.stream()
+				.filter(u -> u.getFullName().toLowerCase().contains(pattern.toLowerCase()))
+				.map(User::secureCopy)
+				.toList();
+
 		return ok(hits);
 	}
-	
-	private boolean badParam( String str ) {
+
+	private boolean badParam(String str) {
 		return str == null;
 	}
-	
-	private boolean badUser( User user ) {
-		return user == null || badParam(user.getEmail()) || badParam(user.getFullName()) || badParam( user.getPassword());
+
+	private boolean badUser(User user) {
+		return user == null || badParam(user.getEmail()) || badParam(user.getFullName())
+				|| badParam(user.getPassword());
 	}
-	
+
 	private boolean wrongPassword(User user, String password) {
 		return !user.getPassword().equals(password);
 	}

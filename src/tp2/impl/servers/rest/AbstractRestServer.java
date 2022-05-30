@@ -4,6 +4,8 @@ import java.net.InetAddress;
 import java.net.URI;
 import java.util.logging.Logger;
 
+import javax.net.ssl.SSLContext;
+
 import org.glassfish.jersey.jdkhttp.JdkHttpServerFactory;
 import org.glassfish.jersey.server.ResourceConfig;
 
@@ -34,7 +36,8 @@ public abstract class AbstractRestServer {
 			registerResources(config);
 
 			System.err.println(">>>>>" + port);
-			JdkHttpServerFactory.createHttpServer(URI.create(serverURI.replace(ip, "0.0.0.0")), config);
+			JdkHttpServerFactory.createHttpServer(URI.create(serverURI.replace(ip, "0.0.0.0")), config,
+					SSLContext.getDefault());
 
 			Log.info(String.format("%s Server ready @ %s\n", service, serverURI));
 
