@@ -16,15 +16,17 @@ public class UploadFile {
 
 	private static final String apiKey = "7xabutsco4qlge6";
 	private static final String apiSecret = "zlc0lxwg809kpf6";
-	private static final String accessTokenStr = "sl.BIk4bBiz95mlT5EsxFoBbRWWqHN-rcGhRSFNQWN-gv3lEeLbCA9NbKT6m9AangG7jNuU-rT3PvErnVhgBA-fLq5xUQHyNWvLDkaGvkGPKmxjpzfANNI18ZvdM_ey3h-1-BpoHZM";
+	private static final String accessTokenStr = "sl.BIpYksin8Qa_ItjA0zTL4lEvheHFI9x5H9xoevzQZEVJ2LOKSXzJBFvktDrtZgjuQWqSBAuchgaC4vxdznY9O0MdaBDxDSI8KofaRIMkB8df81QWZtM6L5SlkHPPgPNaFNvZhhU";
 
-	private static final String UPLOAD_URL = "https://api.dropboxapi.com/2/files/upload";
+	private static final String UPLOAD_URL = "https://content.dropboxapi.com/2/files/upload";
 	private static final String WRITE_MODE = "overwrite";
 
 	private static final int HTTP_SUCCESS = 200;
 
 	private static final String CONTENT_TYPE_HDR = "Content-Type";
-	private static final String JSON_CONTENT_TYPE = "application/json; charset=utf-8";
+	private static final String OCTET_STREAM_CONTENT_TYPE = "application/octet-stream";
+
+	private static final String DROPBOX_API_HDR = "Dropbox-API-Arg";
 
 	private final Gson json;
 	private final OAuth20Service service;
@@ -36,12 +38,14 @@ public class UploadFile {
 		service = new ServiceBuilder(apiKey).apiSecret(apiSecret).build(DropboxApi20.INSTANCE);
 	}
 
-	public void execute(String path, byte[] content_hash) throws Exception {
+	public void execute(String path, byte[] data) throws Exception {
 
 		var upload = new OAuthRequest(Verb.POST, UPLOAD_URL);
-		upload.addHeader(CONTENT_TYPE_HDR, JSON_CONTENT_TYPE);
+		upload.addHeader(CONTENT_TYPE_HDR, OCTET_STREAM_CONTENT_TYPE);
+		upload.addHeader(DROPBOX_API_HDR,
+				json.toJson(new UploadArgs(path, WRITE_MODE, false, false, false)));
 
-		upload.setPayload(json.toJson(new UploadArgs(path, WRITE_MODE, false, false, false, "hey yo")));
+		upload.setPayload(data);
 
 		service.signRequest(accessToken, upload);
 

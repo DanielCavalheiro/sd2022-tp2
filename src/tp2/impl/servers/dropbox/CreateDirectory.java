@@ -16,7 +16,7 @@ public class CreateDirectory {
 
 	private static final String apiKey = "7xabutsco4qlge6";
 	private static final String apiSecret = "zlc0lxwg809kpf6";
-	private static final String accessTokenStr = "sl.BIk4bBiz95mlT5EsxFoBbRWWqHN-rcGhRSFNQWN-gv3lEeLbCA9NbKT6m9AangG7jNuU-rT3PvErnVhgBA-fLq5xUQHyNWvLDkaGvkGPKmxjpzfANNI18ZvdM_ey3h-1-BpoHZM";
+	private static final String accessTokenStr = "sl.BIpYksin8Qa_ItjA0zTL4lEvheHFI9x5H9xoevzQZEVJ2LOKSXzJBFvktDrtZgjuQWqSBAuchgaC4vxdznY9O0MdaBDxDSI8KofaRIMkB8df81QWZtM6L5SlkHPPgPNaFNvZhhU";
 
 	private static final String CREATE_FOLDER_V2_URL = "https://api.dropboxapi.com/2/files/create_folder_v2";
 

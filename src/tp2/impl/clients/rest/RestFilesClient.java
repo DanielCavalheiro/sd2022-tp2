@@ -9,6 +9,7 @@ import jakarta.ws.rs.core.Response;
 import tp2.api.service.java.Files;
 import tp2.api.service.java.Result;
 import tp2.api.service.rest.RestFiles;
+import tp2.impl.servers.common.JavaFiles;
 
 public class RestFilesClient extends RestClient implements Files {
 
@@ -17,15 +18,16 @@ public class RestFilesClient extends RestClient implements Files {
 	public RestFilesClient(URI serverUri) {
 		super(serverUri, RestFiles.PATH);
 	}
-	
+
 	@Override
 	public Result<byte[]> getFile(String fileId, String token) {
 		Response r = target.path(fileId)
 				.queryParam(RestFiles.TOKEN, token)
 				.request()
-				.accept( MediaType.APPLICATION_OCTET_STREAM)
+				.accept(MediaType.APPLICATION_OCTET_STREAM)
 				.get();
-		return super.toJavaResult(r, new GenericType<byte[]>() {});
+		return super.toJavaResult(r, new GenericType<byte[]>() {
+		});
 	}
 
 	@Override
@@ -34,7 +36,7 @@ public class RestFilesClient extends RestClient implements Files {
 				.queryParam(RestFiles.TOKEN, token)
 				.request()
 				.delete();
-		
+
 		return super.toJavaResult(r);
 	}
 
@@ -44,7 +46,7 @@ public class RestFilesClient extends RestClient implements Files {
 				.queryParam(RestFiles.TOKEN, token)
 				.request()
 				.post(Entity.entity(data, MediaType.APPLICATION_OCTET_STREAM));
-		
+
 		return super.toJavaResult(r);
 	}
 
@@ -55,7 +57,8 @@ public class RestFilesClient extends RestClient implements Files {
 				.queryParam(RestFiles.TOKEN, token)
 				.request()
 				.delete();
-		
+
 		return super.toJavaResult(r);
-	}	
+	}
+
 }

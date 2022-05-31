@@ -17,32 +17,32 @@ import util.IO;
 public class JavaFiles implements Files {
 
 	static final String DELIMITER = "$$$";
-	private static final String ROOT = "/tmp/";
-	
+	public static final String ROOT = "/tmp/";
+
 	public JavaFiles() {
-		new File( ROOT ).mkdirs();
+		new File(ROOT).mkdirs();
 	}
 
 	@Override
 	public Result<byte[]> getFile(String fileId, String token) {
-		fileId = fileId.replace( DELIMITER, "/");
-		byte[] data = IO.read( new File( ROOT + fileId ));
-		return data != null ? ok( data) : error( NOT_FOUND );
+		fileId = fileId.replace(DELIMITER, "/");
+		byte[] data = IO.read(new File(ROOT + fileId));
+		return data != null ? ok(data) : error(NOT_FOUND);
 	}
 
 	@Override
 	public Result<Void> deleteFile(String fileId, String token) {
-		fileId = fileId.replace( DELIMITER, "/");
-		boolean res = IO.delete( new File( ROOT + fileId ));	
-		return res ? ok() : error( NOT_FOUND );
+		fileId = fileId.replace(DELIMITER, "/");
+		boolean res = IO.delete(new File(ROOT + fileId));
+		return res ? ok() : error(NOT_FOUND);
 	}
 
 	@Override
 	public Result<Void> writeFile(String fileId, byte[] data, String token) {
-		fileId = fileId.replace( DELIMITER, "/");
+		fileId = fileId.replace(DELIMITER, "/");
 		File file = new File(ROOT + fileId);
 		file.getParentFile().mkdirs();
-		IO.write( file, data);
+		IO.write(file, data);
 		return ok();
 	}
 
@@ -51,9 +51,9 @@ public class JavaFiles implements Files {
 		File file = new File(ROOT + userId);
 		try {
 			java.nio.file.Files.walk(file.toPath())
-			.sorted(Comparator.reverseOrder())
-			.map(Path::toFile)
-			.forEach(File::delete);
+					.sorted(Comparator.reverseOrder())
+					.map(Path::toFile)
+					.forEach(File::delete);
 		} catch (IOException e) {
 			e.printStackTrace();
 			return error(INTERNAL_ERROR);
@@ -64,4 +64,5 @@ public class JavaFiles implements Files {
 	public static String fileId(String filename, String userId) {
 		return userId + JavaFiles.DELIMITER + filename;
 	}
+
 }

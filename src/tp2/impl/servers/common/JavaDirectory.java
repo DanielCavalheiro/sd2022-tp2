@@ -34,6 +34,7 @@ import tp2.api.User;
 import tp2.api.service.java.Directory;
 import tp2.api.service.java.Result;
 import tp2.api.service.java.Result.ErrorCode;
+import util.Hash;
 import util.Token;
 
 public class JavaDirectory implements Directory {
@@ -41,25 +42,25 @@ public class JavaDirectory implements Directory {
 	static final long USER_CACHE_EXPIRATION = 3000;
 
 	final LoadingCache<UserInfo, Result<User>> users = CacheBuilder.newBuilder()
-			.expireAfterWrite( Duration.ofMillis(USER_CACHE_EXPIRATION))
+			.expireAfterWrite(Duration.ofMillis(USER_CACHE_EXPIRATION))
 			.build(new CacheLoader<>() {
 				@Override
 				public Result<User> load(UserInfo info) throws Exception {
-					var res = UsersClients.get().getUser( info.userId(), info.password());
-					if( res.error() == ErrorCode.TIMEOUT)
+					var res = UsersClients.get().getUser(info.userId(), info.password());
+					if (res.error() == ErrorCode.TIMEOUT)
 						return error(BAD_REQUEST);
 					else
 						return res;
 				}
 			});
-	
+
 	final static Logger Log = Logger.getLogger(JavaDirectory.class.getName());
 	final ExecutorService executor = Executors.newCachedThreadPool();
 
 	final Map<String, ExtendedFileInfo> files = new ConcurrentHashMap<>();
 	final Map<String, UserFiles> userFiles = new ConcurrentHashMap<>();
 	final Map<URI, FileCounts> fileCounts = new ConcurrentHashMap<>();
-	
+
 	@Override
 	public Result<FileInfo> writeFile(String filename, byte[] data, String userId, String password) {
 
@@ -73,16 +74,17 @@ public class JavaDirectory implements Directory {
 		var uf = userFiles.computeIfAbsent(userId, (k) -> new UserFiles());
 		synchronized (uf) {
 			var fileId = fileId(filename, userId);
+			Token.set(Hash.of(fileId, "mysecret", System.nanoTime()));
 			var file = files.get(fileId);
 			var info = file != null ? file.info() : new FileInfo();
-			for (var uri :  orderCandidateFileServers(file)) {
+			for (var uri : orderCandidateFileServers(file)) {
 				var result = FilesClients.get(uri).writeFile(fileId, data, Token.get());
 				if (result.isOK()) {
 					info.setOwner(userId);
 					info.setFilename(filename);
 					info.setFileURL(String.format("%s/files/%s", uri, fileId));
 					files.put(fileId, file = new ExtendedFileInfo(uri, fileId, info));
-					if( uf.owned().add(fileId))
+					if (uf.owned().add(fileId))
 						getFileCounts(file.uri(), true).numFiles().incrementAndGet();
 					return ok(file.info());
 				} else
@@ -92,7 +94,6 @@ public class JavaDirectory implements Directory {
 		}
 	}
 
-	
 	@Override
 	public Result<Void> deleteFile(String filename, String userId, String password) {
 		if (badParam(filename) || badParam(userId))
@@ -117,7 +118,7 @@ public class JavaDirectory implements Directory {
 				this.removeSharesOfFile(info);
 				FilesClients.get(file.uri()).deleteFile(fileId, password);
 			});
-			
+
 			getFileCounts(info.uri(), false).numFiles().decrementAndGet();
 		}
 		return ok();
@@ -187,8 +188,8 @@ public class JavaDirectory implements Directory {
 
 		if (!file.info().hasAccess(accUserId))
 			return error(FORBIDDEN);
-		
-		return redirect( file.info().getFileURL() );
+
+		return redirect(file.info().getFileURL());
 	}
 
 	@Override
@@ -219,17 +220,17 @@ public class JavaDirectory implements Directory {
 
 	private Result<User> getUser(String userId, String password) {
 		try {
-			return users.get( new UserInfo( userId, password));
-		} catch( Exception x ) {
+			return users.get(new UserInfo(userId, password));
+		} catch (Exception x) {
 			x.printStackTrace();
-			return error( ErrorCode.INTERNAL_ERROR);
+			return error(ErrorCode.INTERNAL_ERROR);
 		}
 	}
-	
+
 	@Override
 	public Result<Void> deleteUserFiles(String userId, String password, String token) {
-		users.invalidate( new UserInfo(userId, password));
-		
+		users.invalidate(new UserInfo(userId, password));
+
 		var fileIds = userFiles.remove(userId);
 		if (fileIds != null)
 			for (var id : fileIds.owned()) {
@@ -245,38 +246,36 @@ public class JavaDirectory implements Directory {
 			userFiles.getOrDefault(userId, new UserFiles()).shared().remove(file.fileId());
 	}
 
-
 	private Queue<URI> orderCandidateFileServers(ExtendedFileInfo file) {
-		int MAX_SIZE=3;
+		int MAX_SIZE = 3;
 		Queue<URI> result = new ArrayDeque<>();
-		
-		if( file != null )
-			result.add( file.uri() );
+
+		if (file != null)
+			result.add(file.uri());
 
 		FilesClients.all()
 				.stream()
-				.filter( u -> ! result.contains(u))
+				.filter(u -> !result.contains(u))
 				.map(u -> getFileCounts(u, false))
-				.sorted( FileCounts::ascending )
+				.sorted(FileCounts::ascending)
 				.map(FileCounts::uri)
 				.limit(MAX_SIZE)
-				.forEach( result::add );
-		
-		while( result.size() < MAX_SIZE )
-			result.add( result.peek() );
-		
-		Log.info("Candidate files servers: " + result+ "\n");
+				.forEach(result::add);
+
+		while (result.size() < MAX_SIZE)
+			result.add(result.peek());
+
+		Log.info("Candidate files servers: " + result + "\n");
 		return result;
 	}
-	
-	private FileCounts getFileCounts( URI uri, boolean create ) {
-		if( create )
-			return fileCounts.computeIfAbsent(uri,  FileCounts::new);
+
+	private FileCounts getFileCounts(URI uri, boolean create) {
+		if (create)
+			return fileCounts.computeIfAbsent(uri, FileCounts::new);
 		else
-			return fileCounts.getOrDefault( uri, new FileCounts(uri) );
+			return fileCounts.getOrDefault(uri, new FileCounts(uri));
 	}
-	
-	
+
 	static record ExtendedFileInfo(URI uri, String fileId, FileInfo info) {
 	}
 
@@ -288,15 +287,15 @@ public class JavaDirectory implements Directory {
 	}
 
 	static record FileCounts(URI uri, AtomicLong numFiles) {
-		FileCounts( URI uri) {
-			this(uri, new AtomicLong(0L) );
+		FileCounts(URI uri) {
+			this(uri, new AtomicLong(0L));
 		}
 
 		static int ascending(FileCounts a, FileCounts b) {
-			return Long.compare( a.numFiles().get(), b.numFiles().get());
+			return Long.compare(a.numFiles().get(), b.numFiles().get());
 		}
-	}	
-	
-	static record UserInfo(String userId, String password) {		
+	}
+
+	static record UserInfo(String userId, String password) {
 	}
 }

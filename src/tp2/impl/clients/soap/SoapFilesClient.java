@@ -16,10 +16,10 @@ public class SoapFilesClient extends SoapClient<SoapFiles> implements Files {
 		super(serverURI, () -> {
 			QName QNAME = new QName(SoapFiles.NAMESPACE, SoapFiles.NAME);
 			Service service = Service.create(Url.from(serverURI + WSDL), QNAME);
-			return service.getPort(tp2.api.service.soap.SoapFiles.class);			
+			return service.getPort(tp2.api.service.soap.SoapFiles.class);
 		});
 	}
-	
+
 	@Override
 	public Result<byte[]> getFile(String fileId, String token) {
 		return super.toJavaResult(() -> impl.getFile(fileId, token));
@@ -39,4 +39,5 @@ public class SoapFilesClient extends SoapClient<SoapFiles> implements Files {
 	public Result<Void> deleteUserFiles(String userId, String token) {
 		return super.toJavaResult(() -> impl.deleteUserFiles(userId, token));
 	}
+
 }
