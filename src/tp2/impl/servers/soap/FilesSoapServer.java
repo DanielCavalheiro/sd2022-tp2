@@ -41,7 +41,7 @@ public class FilesSoapServer {
 		server.setExecutor(Executors.newCachedThreadPool());
 		server.setHttpsConfigurator(configurator);
 		
-		var endpoint = Endpoint.create(new SoapUsersWebService());		
+		var endpoint = Endpoint.create(new SoapFilesWebService());		
 		endpoint.publish(server.createContext("/soap"));
 		
 		server.start();

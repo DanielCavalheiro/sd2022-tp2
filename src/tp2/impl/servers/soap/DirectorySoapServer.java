@@ -41,7 +41,7 @@ public class DirectorySoapServer {
 		server.setExecutor(Executors.newCachedThreadPool());
 		server.setHttpsConfigurator(configurator);
 		
-		var endpoint = Endpoint.create(new SoapUsersWebService());		
+		var endpoint = Endpoint.create(new SoapDirectoryWebService());		
 		endpoint.publish(server.createContext("/soap"));
 		
 		server.start();
