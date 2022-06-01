@@ -11,6 +11,7 @@ import tp2.api.service.java.Directory;
 import tp2.api.service.java.Result.ErrorCode;
 import tp2.api.service.rest.RestDirectory;
 import tp2.impl.servers.common.JavaDirectory;
+import static tp2.api.service.java.Result.redirect;
 
 @Singleton
 public class DirectoryResources extends RestResource implements RestDirectory {
@@ -61,10 +62,11 @@ public class DirectoryResources extends RestResource implements RestDirectory {
 				userId, accUserId, password));
 
 		var res = impl.getFile(filename, userId, accUserId, password);
+		String uriString = res.errorValue();
 		if (res.error() == ErrorCode.REDIRECT) {
-			String[] locations = ((String)res.errorValue()).split("\\$\\$\\$");
+			String[] locations = uriString.split("\\#\\#\\#");
 			for (String location : locations) {
-				if (!location.contains(REST))
+				//if (!location.contains(REST))
 					res = FilesClients.get(location).getFile(JavaDirectory.fileId(filename, userId), password);
 
 				if(res.isOK()){
@@ -73,6 +75,7 @@ public class DirectoryResources extends RestResource implements RestDirectory {
 			}
 			
 		}
+
 		return super.resultOrThrow(res);
 
 	}

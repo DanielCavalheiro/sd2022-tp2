@@ -93,6 +93,7 @@ public class JavaDirectory implements Directory {
 					info.setOwner(userId);
 					info.setFilename(filename);
 					info.setFileURL(String.format("%s/files/%s", uri, fileId));
+					uf.owned.add(fileId);
 				} 
 				
 				
@@ -205,11 +206,10 @@ public class JavaDirectory implements Directory {
 			return error(FORBIDDEN);
  
 		List<URI> uris = files.get(fileId).uris();
-		System.out.println("-----------------------------------------\n"+ uris);
 		String uriString = "";
 		for (URI uri : uris) {
 			String url = String.format("%s/files/%s", uri, fileId);
-			uriString = JavaFiles.DELIMITER + url;
+			uriString = url + "###" ;
 		}
 		
 		return redirect(uriString);
