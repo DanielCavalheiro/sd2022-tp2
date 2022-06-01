@@ -62,9 +62,16 @@ public class DirectoryResources extends RestResource implements RestDirectory {
 
 		var res = impl.getFile(filename, userId, accUserId, password);
 		if (res.error() == ErrorCode.REDIRECT) {
-			String location = res.errorValue();
-			if (!location.contains(REST))
-				res = FilesClients.get(location).getFile(JavaDirectory.fileId(filename, userId), password);
+			String[] locations = ((String)res.errorValue()).split("\\$\\$\\$");
+			for (String location : locations) {
+				if (!location.contains(REST))
+					res = FilesClients.get(location).getFile(JavaDirectory.fileId(filename, userId), password);
+
+				if(res.isOK()){
+					break;
+				}
+			}
+			
 		}
 		return super.resultOrThrow(res);
 

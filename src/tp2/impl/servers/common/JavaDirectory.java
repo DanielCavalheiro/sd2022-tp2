@@ -13,6 +13,8 @@ import java.net.URI;
 import java.time.Duration;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Collection;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Queue;
@@ -71,25 +73,35 @@ public class JavaDirectory implements Directory {
 		if (!user.isOK())
 			return error(user.error());
 
-		var uf = userFiles.computeIfAbsent(userId, (k) -> new UserFiles());
+		UserFiles uf = userFiles.computeIfAbsent(userId, (k) -> new UserFiles());
 		synchronized (uf) {
 			var fileId = fileId(filename, userId);
 			Token.set(Hash.of(fileId, "mysecret", System.nanoTime()));
 			var file = files.get(fileId);
 			var info = file != null ? file.info() : new FileInfo();
-			for (var uri : orderCandidateFileServers(file)) {
+			List<URI> uris = new LinkedList<>();
+			int serverSucc=0;
+			for (var uri : candidateFileServers(file)) {
 				var result = FilesClients.get(uri).writeFile(fileId, data, Token.get());
 				if (result.isOK()) {
+					serverSucc++;
+					uris.add(uri);
+				} else
+					Log.info(String.format("Files.writeFile(...) to %s failed with: %s \n", uri, result));
+				
+				if(serverSucc==2){
 					info.setOwner(userId);
 					info.setFilename(filename);
 					info.setFileURL(String.format("%s/files/%s", uri, fileId));
-					files.put(fileId, file = new ExtendedFileInfo(uri, fileId, info));
-					if (uf.owned().add(fileId))
-						getFileCounts(file.uri(), true).numFiles().incrementAndGet();
-					return ok(file.info());
-				} else
-					Log.info(String.format("Files.writeFile(...) to %s failed with: %s \n", uri, result));
+				} 
+				
+				
 			}
+			files.put(fileId, file = new ExtendedFileInfo(uris, fileId, info));
+			
+			if(serverSucc > 1)
+				return ok(file.info());
+	
 			return error(BAD_REQUEST);
 		}
 	}
@@ -116,10 +128,13 @@ public class JavaDirectory implements Directory {
 
 			executor.execute(() -> {
 				this.removeSharesOfFile(info);
-				FilesClients.get(file.uri()).deleteFile(fileId, password);
+				file.uris.forEach(
+					u -> FilesClients.get(u).deleteFile(fileId, password)
+				);
+				
 			});
 
-			getFileCounts(info.uri(), false).numFiles().decrementAndGet();
+			//getFileCounts(info.uri(), false).numFiles().decrementAndGet();
 		}
 		return ok();
 	}
@@ -188,8 +203,16 @@ public class JavaDirectory implements Directory {
 
 		if (!file.info().hasAccess(accUserId))
 			return error(FORBIDDEN);
-
-		return redirect(file.info().getFileURL());
+ 
+		List<URI> uris = files.get(fileId).uris();
+		System.out.println("-----------------------------------------\n"+ uris);
+		String uriString = "";
+		for (URI uri : uris) {
+			String url = String.format("%s/files/%s", uri, fileId);
+			uriString = JavaFiles.DELIMITER + url;
+		}
+		
+		return redirect(uriString);
 	}
 
 	@Override
@@ -236,7 +259,7 @@ public class JavaDirectory implements Directory {
 			for (var id : fileIds.owned()) {
 				var file = files.remove(id);
 				removeSharesOfFile(file);
-				getFileCounts(file.uri(), false).numFiles().decrementAndGet();
+				// getFileCounts(file.uri(), false).numFiles().decrementAndGet();
 			}
 		return ok();
 	}
@@ -246,19 +269,17 @@ public class JavaDirectory implements Directory {
 			userFiles.getOrDefault(userId, new UserFiles()).shared().remove(file.fileId());
 	}
 
-	private Queue<URI> orderCandidateFileServers(ExtendedFileInfo file) {
+	private Queue<URI> candidateFileServers(ExtendedFileInfo file) {
 		int MAX_SIZE = 3;
 		Queue<URI> result = new ArrayDeque<>();
 
-		if (file != null)
-			result.add(file.uri());
+		if (file != null){
+			file.uris.forEach( uri -> result.add(uri));
+		}
 
 		FilesClients.all()
 				.stream()
 				.filter(u -> !result.contains(u))
-				.map(u -> getFileCounts(u, false))
-				.sorted(FileCounts::ascending)
-				.map(FileCounts::uri)
 				.limit(MAX_SIZE)
 				.forEach(result::add);
 
@@ -276,7 +297,7 @@ public class JavaDirectory implements Directory {
 			return fileCounts.getOrDefault(uri, new FileCounts(uri));
 	}
 
-	static record ExtendedFileInfo(URI uri, String fileId, FileInfo info) {
+	static record ExtendedFileInfo(List<URI> uris, String fileId, FileInfo info) {
 	}
 
 	static record UserFiles(Set<String> owned, Set<String> shared) {
