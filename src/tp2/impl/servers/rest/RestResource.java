@@ -49,7 +49,9 @@ public class RestResource {
 	}
 
 	static private void doRedirect(Result<?> result) throws WebApplicationException {
-		var location = URI.create(result.errorValue());
+		String uriString = result.errorValue();
+		var location = URI.create(uriString.split("\\#\\#\\#")[0]);
+		System.out.println(">>>>>>>>>>>>>>>"+location);
 		throw new WebApplicationException(Response.temporaryRedirect(location).build());
 	}
 }

@@ -107,11 +107,17 @@ public class Discovery {
 						discoveries.computeIfAbsent(name, (k) -> ConcurrentHashMap.newKeySet()).add(uri);
 					}
 				} catch (IOException e) {
+					if (System.currentTimeMillis() - start >= DISCOVERY_TIMEOUT){
+						discoveries.clear();
+						start=System.currentTimeMillis();
+					}
 					Sleep.ms(DISCOVERY_PERIOD);
 					Log.finest("Still listening...");
 				}
-				if (System.currentTimeMillis() - start > DISCOVERY_TIMEOUT)
+				if (System.currentTimeMillis() - start >= DISCOVERY_TIMEOUT){
 					discoveries.clear();
+					start=System.currentTimeMillis();
+				}
 			}
 		} catch (IOException e) {
 			e.printStackTrace();

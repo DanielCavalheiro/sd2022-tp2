@@ -81,7 +81,8 @@ public class JavaDirectory implements Directory {
 			var info = file != null ? file.info() : new FileInfo();
 			List<URI> uris = new LinkedList<>();
 			int serverSucc = 0;
-			for (var uri : candidateFileServers(file)) {
+			Queue<URI> candidateServers = candidateFileServers(file);
+			for (var uri : candidateServers ) {
 				var result = FilesClients.get(uri).writeFile(fileId, data, Token.get());
 				if (result.isOK()) {
 					serverSucc++;
@@ -204,15 +205,20 @@ public class JavaDirectory implements Directory {
 			return error(FORBIDDEN);
 
 		List<URI> uris = files.get(fileId).uris();
+		List<URI> validUris = new LinkedList<>();
+		for( URI validURi : FilesClients.all()){
+			if(uris.contains(validURi)){
+				validUris.add(validURi);
+			}
+		}
+
 		String uriString = "";
-		for (URI uri : uris) {
+		for (URI uri : validUris) {
 			String url = String.format("%s/files/%s", uri, fileId);
 			uriString += url + "###";
 		}
 
 		uriString.substring(0, uriString.length() - 3);
-
-		System.out.println("------------------------------------------------------------\n" + uriString);
 
 		return redirect(uriString);
 	}
