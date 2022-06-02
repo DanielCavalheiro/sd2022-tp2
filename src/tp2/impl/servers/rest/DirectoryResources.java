@@ -66,14 +66,14 @@ public class DirectoryResources extends RestResource implements RestDirectory {
 		if (res.error() == ErrorCode.REDIRECT) {
 			String[] locations = uriString.split("\\#\\#\\#");
 			for (String location : locations) {
-				//if (!location.contains(REST))
-					res = FilesClients.get(location).getFile(JavaDirectory.fileId(filename, userId), password);
+				// if (!location.contains(REST))
+				res = FilesClients.get(location).getFile(JavaDirectory.fileId(filename, userId), password);
 
-				if(res.isOK()){
+				if (res.isOK()) {
 					break;
 				}
 			}
-			
+
 		}
 
 		return super.resultOrThrow(res);

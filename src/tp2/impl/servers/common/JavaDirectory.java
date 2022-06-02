@@ -80,7 +80,7 @@ public class JavaDirectory implements Directory {
 			var file = files.get(fileId);
 			var info = file != null ? file.info() : new FileInfo();
 			List<URI> uris = new LinkedList<>();
-			int serverSucc=0;
+			int serverSucc = 0;
 			for (var uri : candidateFileServers(file)) {
 				var result = FilesClients.get(uri).writeFile(fileId, data, Token.get());
 				if (result.isOK()) {
@@ -88,21 +88,20 @@ public class JavaDirectory implements Directory {
 					uris.add(uri);
 				} else
 					Log.info(String.format("Files.writeFile(...) to %s failed with: %s \n", uri, result));
-				
-				if(serverSucc==2){
+
+				if (serverSucc == 2) {
 					info.setOwner(userId);
 					info.setFilename(filename);
 					info.setFileURL(String.format("%s/files/%s", uri, fileId));
 					uf.owned.add(fileId);
-				} 
-				
-				
+				}
+
 			}
 			files.put(fileId, file = new ExtendedFileInfo(uris, fileId, info));
-			
-			if(serverSucc > 1)
+
+			if (serverSucc > 1)
 				return ok(file.info());
-	
+
 			return error(BAD_REQUEST);
 		}
 	}
@@ -130,12 +129,11 @@ public class JavaDirectory implements Directory {
 			executor.execute(() -> {
 				this.removeSharesOfFile(info);
 				file.uris.forEach(
-					u -> FilesClients.get(u).deleteFile(fileId, password)
-				);
-				
+						u -> FilesClients.get(u).deleteFile(fileId, password));
+
 			});
 
-			//getFileCounts(info.uri(), false).numFiles().decrementAndGet();
+			// getFileCounts(info.uri(), false).numFiles().decrementAndGet();
 		}
 		return ok();
 	}
@@ -204,14 +202,18 @@ public class JavaDirectory implements Directory {
 
 		if (!file.info().hasAccess(accUserId))
 			return error(FORBIDDEN);
- 
+
 		List<URI> uris = files.get(fileId).uris();
 		String uriString = "";
 		for (URI uri : uris) {
 			String url = String.format("%s/files/%s", uri, fileId);
-			uriString = url + "###" ;
+			uriString += url + "###";
 		}
-		
+
+		uriString.substring(0, uriString.length() - 3);
+
+		System.out.println("------------------------------------------------------------\n" + uriString);
+
 		return redirect(uriString);
 	}
 
@@ -273,8 +275,8 @@ public class JavaDirectory implements Directory {
 		int MAX_SIZE = 3;
 		Queue<URI> result = new ArrayDeque<>();
 
-		if (file != null){
-			file.uris.forEach( uri -> result.add(uri));
+		if (file != null) {
+			file.uris.forEach(uri -> result.add(uri));
 		}
 
 		FilesClients.all()

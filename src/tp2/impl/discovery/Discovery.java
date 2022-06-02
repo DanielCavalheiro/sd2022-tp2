@@ -1,6 +1,5 @@
 package tp2.impl.discovery;
 
-
 import java.io.IOException;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
@@ -19,7 +18,8 @@ import java.util.logging.Logger;
 import util.Sleep;
 
 /**
- * Performs service discovery. Used by servers to announce themselves, and clients
+ * Performs service discovery. Used by servers to announce themselves, and
+ * clients
  * to discover services on demand.
  * 
  * @author smduarte
@@ -34,13 +34,13 @@ public class Discovery {
 	static final InetSocketAddress DISCOVERY_ADDR = new InetSocketAddress("226.226.226.226", 2262);
 
 	final Map<String, Set<URI>> discoveries = new ConcurrentHashMap<>();
-	
+
 	static Discovery instance;
-	
+
 	synchronized public static Discovery getInstance() {
-		if( instance == null ) {
+		if (instance == null) {
 			instance = new Discovery();
-			new Thread( instance::listener ).start();
+			new Thread(instance::listener).start();
 		}
 		return instance;
 	}
@@ -49,10 +49,11 @@ public class Discovery {
 	 * Continuously announces a service given its name and uri
 	 * 
 	 * @param serviceName the composite service name: <domain:service>
-	 * @param serviceURI - the uri of the service
+	 * @param serviceURI  - the uri of the service
 	 */
 	public void announce(String serviceName, String serviceURI) {
-		Log.info(String.format("Starting Discovery announcements on: %s for: %s -> %s\n", DISCOVERY_ADDR, serviceName, serviceURI));
+		Log.info(String.format("Starting Discovery announcements on: %s for: %s -> %s\n", DISCOVERY_ADDR, serviceName,
+				serviceURI));
 
 		byte[] pktBytes = String.format("%s%s%s", serviceName, DELIMITER, serviceURI).getBytes();
 
@@ -70,56 +71,63 @@ public class Discovery {
 	}
 
 	/**
-	 * Listens for the given composite service name, blocks until a minimum number of replies is collected.
-	 * @param serviceName - the composite name of the service
+	 * Listens for the given composite service name, blocks until a minimum number
+	 * of replies is collected.
+	 * 
+	 * @param serviceName      - the composite name of the service
 	 * @param minRepliesNeeded - the minimum number of replies required.
 	 * @return the discovery results as an array
 	 */
-	
+
 	public void listener() {
-		Log.info(String.format("Starting discovery on multicast group: %s, port: %d\n", DISCOVERY_ADDR.getAddress(), DISCOVERY_ADDR.getPort()));
+		Log.info(String.format("Starting discovery on multicast group: %s, port: %d\n", DISCOVERY_ADDR.getAddress(),
+				DISCOVERY_ADDR.getPort()));
 
 		final int MAX_DATAGRAM_SIZE = 65535;
 
 		var pkt = new DatagramPacket(new byte[MAX_DATAGRAM_SIZE], MAX_DATAGRAM_SIZE);
 
+		long start = System.currentTimeMillis();
+
 		try (var ms = new MulticastSocket(DISCOVERY_ADDR.getPort())) {
 			joinGroupInAllInterfaces(ms);
-			for(;;) {
+			for (;;) {
 				try {
 					pkt.setLength(MAX_DATAGRAM_SIZE);
 					ms.receive(pkt);
-					
+
 					var tokens = new String(pkt.getData(), 0, pkt.getLength()).split(DELIMITER);
-					Log.finest( "Received: " + Arrays.asList(tokens) + "\n");
-					
+					Log.finest("Received: " + Arrays.asList(tokens) + "\n");
+
 					if (tokens.length == 2) {
-						
+
 						var name = tokens[0];
-						var uri = URI.create( tokens[1]);
-						
-						discoveries.computeIfAbsent(name, (k) -> ConcurrentHashMap.newKeySet()).add( uri );
+						var uri = URI.create(tokens[1]);
+
+						discoveries.computeIfAbsent(name, (k) -> ConcurrentHashMap.newKeySet()).add(uri);
 					}
 				} catch (IOException e) {
 					Sleep.ms(DISCOVERY_PERIOD);
 					Log.finest("Still listening...");
 				}
+				if (System.currentTimeMillis() - start > DISCOVERY_TIMEOUT)
+					discoveries.clear();
 			}
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
 	}
-	
-	
+
 	public URI[] findUrisOf(String serviceName, int minRepliesNeeded) {
-		Log.info(String.format("Discovery.findUrisOf( serviceName: %s, minRequired: %d\n", serviceName, minRepliesNeeded));
-		
-		for(;;) {
-			var results = discoveries.get( serviceName );
-			if( results != null && results.size() >= minRepliesNeeded )
-				return results.toArray( new URI[ results.size() ]);
+		Log.info(String.format("Discovery.findUrisOf( serviceName: %s, minRequired: %d\n", serviceName,
+				minRepliesNeeded));
+
+		for (;;) {
+			var results = discoveries.get(serviceName);
+			if (results != null && results.size() >= minRepliesNeeded)
+				return results.toArray(new URI[results.size()]);
 			else
-				Sleep.ms( DISCOVERY_PERIOD );
+				Sleep.ms(DISCOVERY_PERIOD);
 		}
 	}
 
@@ -133,5 +141,5 @@ public class Discovery {
 				x.printStackTrace();
 			}
 		}
-	}	
+	}
 }
