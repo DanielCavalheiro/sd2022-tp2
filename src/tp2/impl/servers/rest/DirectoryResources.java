@@ -10,7 +10,10 @@ import tp2.api.FileInfo;
 import tp2.api.service.java.Directory;
 import tp2.api.service.java.Result.ErrorCode;
 import tp2.api.service.rest.RestDirectory;
+import tp2.impl.kafka.KafkaUtils;
 import tp2.impl.servers.common.JavaDirectory;
+import tp2.impl.servers.common.JavaDirectory.Operations;
+
 import static tp2.api.service.java.Result.redirect;
 
 @Singleton

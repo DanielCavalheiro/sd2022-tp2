@@ -44,7 +44,7 @@ public class TotalOrderExecutor extends Thread implements RecordProcessor {
 	@Override
 	public void onReceive(ConsumerRecord<String, String> r) {
 		var version = r.offset();
-		System.out.printf("%s : processing: (%d, %s)\n", replicaId, version, r.value());
+		System.out.printf("%s : processing: (%d, %s)\n", replicaId, version, r.value().toString());
 
 		var result = "result of " + r.value();
 		sync.setResult( version, result);	

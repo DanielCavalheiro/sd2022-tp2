@@ -13,7 +13,6 @@ import java.net.URI;
 import java.time.Duration;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
@@ -27,6 +26,8 @@ import java.util.logging.Logger;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import org.apache.kafka.clients.consumer.ConsumerRecord;
+
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
@@ -39,11 +40,12 @@ import tp2.api.service.java.Result;
 import tp2.api.service.java.Result.ErrorCode;
 import tp2.impl.kafka.KafkaPublisher;
 import tp2.impl.kafka.KafkaSubscriber;
+import tp2.impl.kafka.RecordProcessor;
 import tp2.impl.kafka.sync.SyncPoint;
 import util.Hash;
 import util.Token;
 
-public class JavaDirectory implements Directory {
+public class JavaDirectory implements Directory, RecordProcessor {
 
 	static final long USER_CACHE_EXPIRATION = 3000;
 
@@ -67,25 +69,46 @@ public class JavaDirectory implements Directory {
 	final Map<String, UserFiles> userFiles = new ConcurrentHashMap<>();
 	final Map<URI, FileCounts> fileCounts = new ConcurrentHashMap<>();
 
-	static final String KAFKA_BROKERS = "localhost:9092";
+	static final String KAFKA_BROKERS = "kafka:9092";
 	static final String FROM_BEGINNING = "earliest";
 
-	private enum Operations { 	WRITE_FILE, 
-								DELETE_FILE, 
-								SHARE_FILE, 
-								UNSHARE_FILE, GET_FILE, 
-								LS_FILE,
-		 						DELETE_USER_FILES
-							}
+	public enum Operations { 	
+		WRITE_FILE,
+		DELETE_FILE,
+		SHARE_FILE,
+		UNSHARE_FILE,
+		GET_FILE,
+		LS_FILE, 
+		DELETE_USER_FILES;
+
+		public static List<String> toList(){
+			return List.of(Operations.values())
+				.stream()
+				.map(operation -> operation.name())
+				.collect(Collectors.toList());
+		}
+
+		static Operations findByName(String name){
+			for(Operations operation : Operations.values()){
+				if(operation.name().equals(name)){
+					return operation;
+				}
+			}
+			return null;
+		}
+	}
 
 	final String replicaId = UUID.randomUUID().toString();
 	final KafkaPublisher sender = KafkaPublisher.createPublisher(KAFKA_BROKERS);
-	final KafkaSubscriber receiver = KafkaSubscriber.createSubscriber(KAFKA_BROKERS, List.of(Operations.values().toString()), FROM_BEGINNING);
+	final KafkaSubscriber receiver = KafkaSubscriber.createSubscriber(KAFKA_BROKERS, Operations.toList(), FROM_BEGINNING);
 	final SyncPoint<String> sync = new SyncPoint<>();
+
+	public JavaDirectory(){
+		receiver.start(false, this);
+	}
 
 	@Override
 	public Result<FileInfo> writeFile(String filename, byte[] data, String userId, String password) {
-
 		if (badParam(filename) || badParam(userId))
 			return error(BAD_REQUEST);
 
@@ -120,8 +143,11 @@ public class JavaDirectory implements Directory {
 			}
 			files.put(fileId, file = new ExtendedFileInfo(uris, fileId, info));
 
-			if (serverSucc > 1)
+			if (serverSucc > 1){
+				sentToKafkaTopic(Operations.WRITE_FILE, file);
 				return ok(file.info());
+			}
+				
 
 			return error(BAD_REQUEST);
 		}
@@ -153,6 +179,8 @@ public class JavaDirectory implements Directory {
 						u -> FilesClients.get(u).deleteFile(fileId, password));
 
 			});
+
+			sentToKafkaTopic(Operations.DELETE_FILE, info);
 
 			// getFileCounts(info.uri(), false).numFiles().decrementAndGet();
 		}
@@ -280,7 +308,8 @@ public class JavaDirectory implements Directory {
 
 	@Override
 	public Result<Void> deleteUserFiles(String userId, String password, String token) {
-		users.invalidate(new UserInfo(userId, password));
+		UserInfo userInfo = new UserInfo(userId, password);
+		users.invalidate(userInfo);
 
 		var fileIds = userFiles.remove(userId);
 		if (fileIds != null)
@@ -289,6 +318,9 @@ public class JavaDirectory implements Directory {
 				removeSharesOfFile(file);
 				// getFileCounts(file.uri(), false).numFiles().decrementAndGet();
 			}
+
+		sentToKafkaTopic(Operations.DELETE_USER_FILES, userInfo);
+
 		return ok();
 	}
 
@@ -347,4 +379,77 @@ public class JavaDirectory implements Directory {
 
 	static record UserInfo(String userId, String password) {
 	}
+
+	private long sentToKafkaTopic(Operations operation, Object value){
+		
+		long version = sender.publish(operation.name(), replicaId, value );
+		var result = sync.waitForResult(version);
+		System.out.printf("Op: %s, version: %s, result: %s\n", operation, version, result);
+		
+		return version;
+	}
+
+	@Override
+	public void onReceive(ConsumerRecord<String, String> r) {
+		var version = r.offset();
+		System.out.printf("%s : processing: (%d, %s)\n", replicaId, version, r.value().toString());
+		
+		Operations opName = Operations.findByName(r.topic());
+
+		switch (opName) {
+			case WRITE_FILE -> writeFileKafka(r.value());
+			case DELETE_FILE -> deleteFileKafka(r.value());
+			case DELETE_USER_FILES -> deleteUserFilesKafka(r.value());
+			case GET_FILE -> throw new UnsupportedOperationException("Unimplemented case: " + opName);
+			case LS_FILE -> throw new UnsupportedOperationException("Unimplemented case: " + opName);
+			case SHARE_FILE -> throw new UnsupportedOperationException("Unimplemented case: " + opName);//shareFileKafka(r.value());
+			case UNSHARE_FILE -> throw new UnsupportedOperationException("Unimplemented case: " + opName);//unshareFile(r.value());
+			default -> throw new IllegalArgumentException("Unexpected value: " + opName);
+		}
+		
+		var result = "result of " + r.value();
+		sync.setResult( version, result);	
+	}
+
+	private void writeFileKafka(String value) {
+		String fileId = value.fileId;
+		files.put(fileId, value);
+
+		String userId = value.info.getOwner();
+		UserFiles uf = userFiles.computeIfAbsent(userId, (k) -> new UserFiles());
+		synchronized (uf) {
+			uf.owned.add(fileId);
+		}
+		
+	}
+
+	private void deleteFileKafka(String value) {
+		String fileId = value.fileId;
+		
+		String userId = value.info.getOwner();
+		var uf = userFiles.getOrDefault(userId, new UserFiles());
+		
+		synchronized (uf) {
+			var info = files.remove(fileId);
+			uf.owned().remove(fileId);
+
+			executor.execute(() -> {
+				this.removeSharesOfFile(info);
+			});
+
+		}
+	}
+
+	private void deleteUserFilesKafka(String value) {
+		users.invalidate(value);
+
+		var fileIds = userFiles.remove(value.userId);
+		if (fileIds != null)
+			for (var id : fileIds.owned()) {
+				var file = files.remove(id);
+				removeSharesOfFile(file);
+			}
+	}
+
+	
 }
