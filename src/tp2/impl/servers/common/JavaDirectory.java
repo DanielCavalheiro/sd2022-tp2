@@ -30,12 +30,16 @@ import java.util.stream.Stream;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
+import java.util.UUID;
 
 import tp2.api.FileInfo;
 import tp2.api.User;
 import tp2.api.service.java.Directory;
 import tp2.api.service.java.Result;
 import tp2.api.service.java.Result.ErrorCode;
+import tp2.impl.kafka.KafkaPublisher;
+import tp2.impl.kafka.KafkaSubscriber;
+import tp2.impl.kafka.sync.SyncPoint;
 import util.Hash;
 import util.Token;
 
@@ -62,6 +66,22 @@ public class JavaDirectory implements Directory {
 	final Map<String, ExtendedFileInfo> files = new ConcurrentHashMap<>();
 	final Map<String, UserFiles> userFiles = new ConcurrentHashMap<>();
 	final Map<URI, FileCounts> fileCounts = new ConcurrentHashMap<>();
+
+	static final String KAFKA_BROKERS = "localhost:9092";
+	static final String FROM_BEGINNING = "earliest";
+
+	private enum Operations { 	WRITE_FILE, 
+								DELETE_FILE, 
+								SHARE_FILE, 
+								UNSHARE_FILE, GET_FILE, 
+								LS_FILE,
+		 						DELETE_USER_FILES
+							}
+
+	final String replicaId = UUID.randomUUID().toString();
+	final KafkaPublisher sender = KafkaPublisher.createPublisher(KAFKA_BROKERS);
+	final KafkaSubscriber receiver = KafkaSubscriber.createSubscriber(KAFKA_BROKERS, List.of(Operations.values().toString()), FROM_BEGINNING);
+	final SyncPoint<String> sync = new SyncPoint<>();
 
 	@Override
 	public Result<FileInfo> writeFile(String filename, byte[] data, String userId, String password) {
