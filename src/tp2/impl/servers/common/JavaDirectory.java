@@ -28,9 +28,13 @@ import java.util.stream.Stream;
 
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
+import com.google.gson.Gson;
+
 import java.util.UUID;
 
 import tp2.api.FileInfo;
@@ -68,29 +72,30 @@ public class JavaDirectory implements Directory, RecordProcessor {
 	final Map<String, ExtendedFileInfo> files = new ConcurrentHashMap<>();
 	final Map<String, UserFiles> userFiles = new ConcurrentHashMap<>();
 	final Map<URI, FileCounts> fileCounts = new ConcurrentHashMap<>();
+	ObjectMapper mapper = new ObjectMapper();
 
 	static final String KAFKA_BROKERS = "kafka:9092";
 	static final String FROM_BEGINNING = "earliest";
 
-	public enum Operations { 	
+	public enum Operations {
 		WRITE_FILE,
 		DELETE_FILE,
 		SHARE_FILE,
 		UNSHARE_FILE,
 		GET_FILE,
-		LS_FILE, 
+		LS_FILE,
 		DELETE_USER_FILES;
 
-		public static List<String> toList(){
+		public static List<String> toList() {
 			return List.of(Operations.values())
-				.stream()
-				.map(operation -> operation.name())
-				.collect(Collectors.toList());
+					.stream()
+					.map(operation -> operation.name())
+					.collect(Collectors.toList());
 		}
 
-		static Operations findByName(String name){
-			for(Operations operation : Operations.values()){
-				if(operation.name().equals(name)){
+		static Operations findByName(String name) {
+			for (Operations operation : Operations.values()) {
+				if (operation.name().equals(name)) {
 					return operation;
 				}
 			}
@@ -100,10 +105,11 @@ public class JavaDirectory implements Directory, RecordProcessor {
 
 	final String replicaId = UUID.randomUUID().toString();
 	final KafkaPublisher sender = KafkaPublisher.createPublisher(KAFKA_BROKERS);
-	final KafkaSubscriber receiver = KafkaSubscriber.createSubscriber(KAFKA_BROKERS, Operations.toList(), FROM_BEGINNING);
+	final KafkaSubscriber receiver = KafkaSubscriber.createSubscriber(KAFKA_BROKERS, Operations.toList(),
+			FROM_BEGINNING);
 	final SyncPoint<String> sync = new SyncPoint<>();
 
-	public JavaDirectory(){
+	public JavaDirectory() {
 		receiver.start(false, this);
 	}
 
@@ -122,10 +128,10 @@ public class JavaDirectory implements Directory, RecordProcessor {
 			Token.set(Hash.of(fileId, "mysecret", System.nanoTime()));
 			var file = files.get(fileId);
 			var info = file != null ? file.info() : new FileInfo();
-			List<URI> uris = new LinkedList<>();
+			ArrayList<URI> uris = new ArrayList<>();
 			int serverSucc = 0;
 			Queue<URI> candidateServers = candidateFileServers(file);
-			for (var uri : candidateServers ) {
+			for (var uri : candidateServers) {
 				var result = FilesClients.get(uri).writeFile(fileId, data, Token.get());
 				if (result.isOK()) {
 					serverSucc++;
@@ -143,11 +149,10 @@ public class JavaDirectory implements Directory, RecordProcessor {
 			}
 			files.put(fileId, file = new ExtendedFileInfo(uris, fileId, info));
 
-			if (serverSucc > 1){
+			if (serverSucc > 1) {
 				sentToKafkaTopic(Operations.WRITE_FILE, file);
 				return ok(file.info());
 			}
-				
 
 			return error(BAD_REQUEST);
 		}
@@ -180,7 +185,7 @@ public class JavaDirectory implements Directory, RecordProcessor {
 
 			});
 
-			sentToKafkaTopic(Operations.DELETE_FILE, info);
+			sentToKafkaTopic(Operations.DELETE_FILE, file);
 
 			// getFileCounts(info.uri(), false).numFiles().decrementAndGet();
 		}
@@ -254,8 +259,8 @@ public class JavaDirectory implements Directory, RecordProcessor {
 
 		List<URI> uris = files.get(fileId).uris();
 		List<URI> validUris = new LinkedList<>();
-		for( URI validURi : FilesClients.all()){
-			if(uris.contains(validURi)){
+		for (URI validURi : FilesClients.all()) {
+			if (uris.contains(validURi)) {
 				validUris.add(validURi);
 			}
 		}
@@ -357,7 +362,7 @@ public class JavaDirectory implements Directory, RecordProcessor {
 			return fileCounts.getOrDefault(uri, new FileCounts(uri));
 	}
 
-	static record ExtendedFileInfo(List<URI> uris, String fileId, FileInfo info) {
+	static record ExtendedFileInfo(ArrayList<URI> uris, String fileId, FileInfo info) {
 	}
 
 	static record UserFiles(Set<String> owned, Set<String> shared) {
@@ -380,12 +385,19 @@ public class JavaDirectory implements Directory, RecordProcessor {
 	static record UserInfo(String userId, String password) {
 	}
 
-	private long sentToKafkaTopic(Operations operation, Object value){
-		
-		long version = sender.publish(operation.name(), replicaId, value );
+	private long sentToKafkaTopic(Operations operation, Object value) {
+
+		String json = "";
+		try {
+			json = mapper.writeValueAsString(value);
+		} catch (JsonProcessingException e) {
+			e.printStackTrace();
+		}
+
+		long version = sender.publish(operation.name(), replicaId, json);
 		var result = sync.waitForResult(version);
 		System.out.printf("Op: %s, version: %s, result: %s\n", operation, version, result);
-		
+
 		return version;
 	}
 
@@ -393,7 +405,7 @@ public class JavaDirectory implements Directory, RecordProcessor {
 	public void onReceive(ConsumerRecord<String, String> r) {
 		var version = r.offset();
 		System.out.printf("%s : processing: (%d, %s)\n", replicaId, version, r.value().toString());
-		
+
 		Operations opName = Operations.findByName(r.topic());
 
 		switch (opName) {
@@ -402,33 +414,45 @@ public class JavaDirectory implements Directory, RecordProcessor {
 			case DELETE_USER_FILES -> deleteUserFilesKafka(r.value());
 			case GET_FILE -> throw new UnsupportedOperationException("Unimplemented case: " + opName);
 			case LS_FILE -> throw new UnsupportedOperationException("Unimplemented case: " + opName);
-			case SHARE_FILE -> throw new UnsupportedOperationException("Unimplemented case: " + opName);//shareFileKafka(r.value());
-			case UNSHARE_FILE -> throw new UnsupportedOperationException("Unimplemented case: " + opName);//unshareFile(r.value());
+			case SHARE_FILE -> throw new UnsupportedOperationException("Unimplemented case: " + opName);// shareFileKafka(r.value());
+			case UNSHARE_FILE -> throw new UnsupportedOperationException("Unimplemented case: " + opName);// unshareFile(r.value());
 			default -> throw new IllegalArgumentException("Unexpected value: " + opName);
 		}
-		
-		var result = "result of " + r.value();
-		sync.setResult( version, result);	
+
+		// var result = "result of " + r.value();
+		sync.setResult(version, r.value());
 	}
 
 	private void writeFileKafka(String value) {
-		String fileId = value.fileId;
-		files.put(fileId, value);
+		ExtendedFileInfo file = null;
+		try {
+			file = mapper.readValue(value, ExtendedFileInfo.class);
+		} catch (JsonProcessingException e) {
+			e.printStackTrace();
+		}
+		String fileId = file.fileId;
+		files.put(fileId, file);
 
-		String userId = value.info.getOwner();
+		String userId = file.info.getOwner();
 		UserFiles uf = userFiles.computeIfAbsent(userId, (k) -> new UserFiles());
 		synchronized (uf) {
 			uf.owned.add(fileId);
 		}
-		
+
 	}
 
 	private void deleteFileKafka(String value) {
-		String fileId = value.fileId;
-		
-		String userId = value.info.getOwner();
+		ExtendedFileInfo file = null;
+		try {
+			file = mapper.readValue(value, ExtendedFileInfo.class);
+		} catch (JsonProcessingException e) {
+			e.printStackTrace();
+		}
+		String fileId = file.fileId;
+
+		String userId = file.info.getOwner();
 		var uf = userFiles.getOrDefault(userId, new UserFiles());
-		
+
 		synchronized (uf) {
 			var info = files.remove(fileId);
 			uf.owned().remove(fileId);
@@ -441,15 +465,20 @@ public class JavaDirectory implements Directory, RecordProcessor {
 	}
 
 	private void deleteUserFilesKafka(String value) {
+		UserInfo file = null;
+		try {
+			file = mapper.readValue(value, UserInfo.class);
+		} catch (JsonProcessingException e) {
+			e.printStackTrace();
+		}
 		users.invalidate(value);
 
-		var fileIds = userFiles.remove(value.userId);
+		var fileIds = userFiles.remove(file.userId);
 		if (fileIds != null)
 			for (var id : fileIds.owned()) {
-				var file = files.remove(id);
-				removeSharesOfFile(file);
+				var fileAux = files.remove(id);
+				removeSharesOfFile(fileAux);
 			}
 	}
 
-	
 }
