@@ -25,33 +25,32 @@ public class RestResource {
 	 */
 	static protected Status statusCode(Result<?> result) {
 		switch (result.error()) {
-		case CONFLICT:
-			return Status.CONFLICT;
-		case NOT_FOUND:
-			return Status.NOT_FOUND;
-		case FORBIDDEN:
-			return Status.FORBIDDEN;
-		case TIMEOUT:
-		case BAD_REQUEST:
-			return Status.BAD_REQUEST;
-		case NOT_IMPLEMENTED:
-			return Status.NOT_IMPLEMENTED;
-		case INTERNAL_ERROR:
-			return Status.INTERNAL_SERVER_ERROR;
-		case OK:
-			return result.value() == null ? Status.NO_CONTENT : Status.OK;
-		case REDIRECT:
-			doRedirect(result);
+			case CONFLICT:
+				return Status.CONFLICT;
+			case NOT_FOUND:
+				return Status.NOT_FOUND;
+			case FORBIDDEN:
+				return Status.FORBIDDEN;
+			case TIMEOUT:
+			case BAD_REQUEST:
+				return Status.BAD_REQUEST;
+			case NOT_IMPLEMENTED:
+				return Status.NOT_IMPLEMENTED;
+			case INTERNAL_ERROR:
+				return Status.INTERNAL_SERVER_ERROR;
+			case OK:
+				return result.value() == null ? Status.NO_CONTENT : Status.OK;
+			case REDIRECT:
+				doRedirect(result);
 
-		default:
-			return Status.INTERNAL_SERVER_ERROR;
+			default:
+				return Status.INTERNAL_SERVER_ERROR;
 		}
 	}
 
 	static private void doRedirect(Result<?> result) throws WebApplicationException {
 		String uriString = result.errorValue();
 		var location = URI.create(uriString.split("\\#\\#\\#")[0]);
-		System.out.println(">>>>>>>>>>>>>>>"+location);
 		throw new WebApplicationException(Response.temporaryRedirect(location).build());
 	}
 }

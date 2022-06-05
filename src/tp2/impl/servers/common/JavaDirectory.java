@@ -133,14 +133,14 @@ public class JavaDirectory implements Directory, RecordProcessor {
 		UserFiles uf = userFiles.computeIfAbsent(userId, (k) -> new UserFiles());
 		synchronized (uf) {
 			var fileId = fileId(filename, userId);
-			Token.set(Hash.of(fileId, "mysecret", System.nanoTime()));
+			String token = generateToken(fileId);
 			var file = files.get(fileId);
 			var info = file != null ? file.info() : new FileInfo();
 			ArrayList<URI> uris = new ArrayList<>();
 			int serverSucc = 0;
 			Queue<URI> candidateServers = candidateFileServers(file);
 			for (var uri : candidateServers) {
-				var result = FilesClients.get(uri).writeFile(fileId, data, Token.get());
+				var result = FilesClients.get(uri).writeFile(fileId, data, token);
 				if (result.isOK()) {
 					serverSucc++;
 					uris.add(uri);
@@ -181,6 +181,8 @@ public class JavaDirectory implements Directory, RecordProcessor {
 		if (!user.isOK())
 			return error(user.error());
 
+		String token = generateToken(fileId);
+
 		var uf = userFiles.getOrDefault(userId, new UserFiles());
 		synchronized (uf) {
 			var info = files.remove(fileId);
@@ -189,7 +191,7 @@ public class JavaDirectory implements Directory, RecordProcessor {
 			executor.execute(() -> {
 				this.removeSharesOfFile(info);
 				file.uris.forEach(
-						u -> FilesClients.get(u).deleteFile(fileId, password));
+						u -> FilesClients.get(u).deleteFile(fileId, token));
 
 			});
 
@@ -328,6 +330,13 @@ public class JavaDirectory implements Directory, RecordProcessor {
 		UserInfo userInfo = new UserInfo(userId, password);
 		users.invalidate(userInfo);
 
+		String[] tokenAndTime = token.split("\\$\\$\\$");
+		String actualToken = tokenAndTime[0];
+		String time = tokenAndTime[1];
+
+		if (!Hash.of(Token.get(), time, userId).equals(actualToken))
+			return error(FORBIDDEN);
+
 		var fileIds = userFiles.remove(userId);
 		if (fileIds != null)
 			for (var id : fileIds.owned()) {
@@ -344,6 +353,12 @@ public class JavaDirectory implements Directory, RecordProcessor {
 	private void removeSharesOfFile(ExtendedFileInfo file) {
 		for (var userId : file.info().getSharedWith())
 			userFiles.getOrDefault(userId, new UserFiles()).shared().remove(file.fileId());
+	}
+
+	public static String generateToken(String fileId) {
+		String time = Long.toString(System.nanoTime());
+		String token = Hash.of(Token.get(), time, fileId);
+		return token + JavaFiles.DELIMITER + time;
 	}
 
 	private Queue<URI> candidateFileServers(ExtendedFileInfo file) {

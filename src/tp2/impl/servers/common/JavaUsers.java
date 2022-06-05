@@ -18,7 +18,7 @@ import java.util.concurrent.Executors;
 import tp2.api.User;
 import tp2.api.service.java.Result;
 import tp2.api.service.java.Users;
-
+import util.Hash;
 import util.Token;
 
 public class JavaUsers implements Users {
@@ -82,11 +82,13 @@ public class JavaUsers implements Users {
 		if (badParam(password) || wrongPassword(user, password))
 			return error(FORBIDDEN);
 		else {
+			String time = Long.toString(System.nanoTime());
+			String token = Hash.of(Token.get(), time, userId) + JavaFiles.DELIMITER + time;
 			users.remove(userId);
 			executor.execute(() -> {
-				DirectoryClients.get().deleteUserFiles(userId, password, Token.get());
+				DirectoryClients.get().deleteUserFiles(userId, password, token);
 				for (var uri : FilesClients.all())
-					FilesClients.get(uri).deleteUserFiles(userId, password);
+					FilesClients.get(uri).deleteUserFiles(userId, token);
 			});
 
 			return ok(user);

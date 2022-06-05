@@ -11,6 +11,9 @@ import tp2.api.service.java.Directory;
 import tp2.api.service.java.Result.ErrorCode;
 import tp2.api.service.rest.RestDirectory;
 import tp2.impl.servers.common.JavaDirectory;
+import tp2.impl.servers.common.JavaFiles;
+import util.Hash;
+import util.Token;
 
 @Singleton
 public class DirectoryResources extends RestResource implements RestDirectory {
@@ -68,8 +71,9 @@ public class DirectoryResources extends RestResource implements RestDirectory {
 		if (res.error() == ErrorCode.REDIRECT) {
 			String[] locations = uriString.split("\\#\\#\\#");
 			for (String location : locations) {
+				String token = JavaDirectory.generateToken(JavaDirectory.fileId(filename, userId));
 				if (!location.contains(REST))
-					res = FilesClients.get(location).getFile(JavaDirectory.fileId(filename, userId), password);
+					res = FilesClients.get(location).getFile(JavaDirectory.fileId(filename, userId), token);
 
 				if (res.isOK()) {
 					break;

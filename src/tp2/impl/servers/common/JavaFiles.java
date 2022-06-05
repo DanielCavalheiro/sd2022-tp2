@@ -12,7 +12,9 @@ import java.util.Comparator;
 
 import tp2.api.service.java.Files;
 import tp2.api.service.java.Result;
+import util.Hash;
 import util.IO;
+import util.Token;
 
 public class JavaFiles implements Files {
 
@@ -25,6 +27,16 @@ public class JavaFiles implements Files {
 
 	@Override
 	public Result<byte[]> getFile(String fileId, String token) {
+		System.out.println(token);
+		String[] tokenAndTime = token.split("\\$\\$\\$");
+		System.out.println("----------" + tokenAndTime[0]);
+		System.out.println("----------" + tokenAndTime[1]);
+		String actualToken = tokenAndTime[0];
+		String time = tokenAndTime[1];
+
+		if (!Hash.of(Token.get(), time, fileId).equals(actualToken))
+			return error(Result.ErrorCode.FORBIDDEN);
+
 		fileId = fileId.replace(DELIMITER, "/");
 		byte[] data = IO.read(new File(ROOT + fileId));
 		return data != null ? ok(data) : error(NOT_FOUND);
@@ -32,6 +44,13 @@ public class JavaFiles implements Files {
 
 	@Override
 	public Result<Void> deleteFile(String fileId, String token) {
+		String[] tokenAndTime = token.split("\\$\\$\\$");
+		String actualToken = tokenAndTime[0];
+		String time = tokenAndTime[1];
+
+		if (!Hash.of(Token.get(), time, fileId).equals(actualToken))
+			return error(Result.ErrorCode.FORBIDDEN);
+
 		fileId = fileId.replace(DELIMITER, "/");
 		boolean res = IO.delete(new File(ROOT + fileId));
 		return res ? ok() : error(NOT_FOUND);
@@ -39,6 +58,13 @@ public class JavaFiles implements Files {
 
 	@Override
 	public Result<Void> writeFile(String fileId, byte[] data, String token) {
+		String[] tokenAndTime = token.split("\\$\\$\\$");
+		String actualToken = tokenAndTime[0];
+		String time = tokenAndTime[1];
+
+		if (!Hash.of(Token.get(), time, fileId).equals(actualToken))
+			return error(Result.ErrorCode.FORBIDDEN);
+
 		fileId = fileId.replace(DELIMITER, "/");
 		File file = new File(ROOT + fileId);
 		file.getParentFile().mkdirs();
@@ -48,6 +74,13 @@ public class JavaFiles implements Files {
 
 	@Override
 	public Result<Void> deleteUserFiles(String userId, String token) {
+		String[] tokenAndTime = token.split("\\$\\$\\$");
+		String actualToken = tokenAndTime[0];
+		String time = tokenAndTime[1];
+
+		if (!Hash.of(Token.get(), time, userId).equals(actualToken))
+			return error(Result.ErrorCode.FORBIDDEN);
+
 		File file = new File(ROOT + userId);
 		try {
 			java.nio.file.Files.walk(file.toPath())
