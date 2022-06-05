@@ -27,6 +27,7 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import org.apache.kafka.clients.consumer.ConsumerRecord;
+import org.glassfish.jersey.server.ResourceConfig;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -46,6 +47,7 @@ import tp2.impl.kafka.KafkaPublisher;
 import tp2.impl.kafka.KafkaSubscriber;
 import tp2.impl.kafka.RecordProcessor;
 import tp2.impl.kafka.sync.SyncPoint;
+import tp2.impl.servers.rest.DirectoryRestServer;
 import util.Hash;
 import util.Token;
 
@@ -105,15 +107,18 @@ public class JavaDirectory implements Directory, RecordProcessor {
 
 	final String replicaId;
 	final KafkaPublisher sender;
-	final KafkaSubscriber receiver; 
+	final KafkaSubscriber receiver;
 	final SyncPoint<String> sync;
 
 	public JavaDirectory() {
 		replicaId = UUID.randomUUID().toString();
 		sender = KafkaPublisher.createPublisher(KAFKA_BROKERS);
-		receiver = KafkaSubscriber.createSubscriber(KAFKA_BROKERS, Operations.toList(),FROM_BEGINNING);
-		receiver.start(false,  (r) -> {onReceive(r);});
+		receiver = KafkaSubscriber.createSubscriber(KAFKA_BROKERS, Operations.toList(), FROM_BEGINNING);
+		receiver.start(false, (r) -> {
+			onReceive(r);
+		});
 		sync = new SyncPoint<>();
+		System.out.println(replicaId);
 	}
 
 	@Override
@@ -216,6 +221,8 @@ public class JavaDirectory implements Directory, RecordProcessor {
 			file.info().getSharedWith().add(userIdShare);
 		}
 
+		sentToKafkaTopic(Operations.SHARE_FILE, new SharingInfo(fileId, userIdShare));
+
 		return ok();
 	}
 
@@ -239,6 +246,8 @@ public class JavaDirectory implements Directory, RecordProcessor {
 			uf.shared().remove(fileId);
 			file.info().getSharedWith().remove(userIdShare);
 		}
+
+		sentToKafkaTopic(Operations.UNSHARE_FILE, new SharingInfo(fileId, userIdShare));
 
 		return ok();
 	}
@@ -368,6 +377,9 @@ public class JavaDirectory implements Directory, RecordProcessor {
 	static record ExtendedFileInfo(ArrayList<URI> uris, String fileId, FileInfo info) {
 	}
 
+	static record SharingInfo(String fileId, String userIdShare) {
+	}
+
 	static record UserFiles(Set<String> owned, Set<String> shared) {
 
 		UserFiles() {
@@ -399,14 +411,12 @@ public class JavaDirectory implements Directory, RecordProcessor {
 
 		long version = sender.publish(operation.name(), json);
 		new Thread(() -> {
-			String result="";
-			while(result.equals("")) {
+			String result = "";
+			while (result.equals("")) {
 				result = sync.waitForResult(version);
 			}
 			System.out.printf("Op: %s, version: %s, result: %s\n", operation, version, result);
 		}).start();
-		
-		
 
 		return version;
 	}
@@ -417,15 +427,15 @@ public class JavaDirectory implements Directory, RecordProcessor {
 		System.out.printf("%s : processing: (%d, %s)\n", replicaId, version, r.value().toString());
 
 		Operations opName = Operations.findByName(r.topic());
-		System.out.println("---------------- "+ opName.name());
+		System.out.println("---------------- " + opName.name());
 		switch (opName) {
 			case WRITE_FILE -> writeFileKafka(r.value());
 			case DELETE_FILE -> deleteFileKafka(r.value());
 			case DELETE_USER_FILES -> deleteUserFilesKafka(r.value());
 			case GET_FILE -> throw new UnsupportedOperationException("Unimplemented case: " + opName);
 			case LS_FILE -> throw new UnsupportedOperationException("Unimplemented case: " + opName);
-			case SHARE_FILE -> throw new UnsupportedOperationException("Unimplemented case: " + opName);// shareFileKafka(r.value());
-			case UNSHARE_FILE -> throw new UnsupportedOperationException("Unimplemented case: " + opName);// unshareFile(r.value());
+			case SHARE_FILE -> shareFileKafka(r.value());
+			case UNSHARE_FILE -> unshareFileKafka(r.value());
 			default -> throw new IllegalArgumentException("Unexpected value: " + opName);
 		}
 
@@ -441,7 +451,6 @@ public class JavaDirectory implements Directory, RecordProcessor {
 			e.printStackTrace();
 		}
 		String fileId = file.fileId;
-		System.out.println(">><<<<<<<>>>><<<<<>>>>><<> "+ fileId);
 		files.put(fileId, file);
 
 		String userId = file.info.getOwner();
@@ -468,9 +477,11 @@ public class JavaDirectory implements Directory, RecordProcessor {
 			var info = files.remove(fileId);
 			uf.owned().remove(fileId);
 
-			executor.execute(() -> {
-				this.removeSharesOfFile(info);
-			});
+			if (info != null) {
+				executor.execute(() -> {
+					this.removeSharesOfFile(info);
+				});
+			}
 
 		}
 	}
@@ -490,6 +501,47 @@ public class JavaDirectory implements Directory, RecordProcessor {
 				var fileAux = files.remove(id);
 				removeSharesOfFile(fileAux);
 			}
+	}
+
+	private void shareFileKafka(String value) {
+		SharingInfo info = null;
+		try {
+			info = mapper.readValue(value, SharingInfo.class);
+		} catch (JsonProcessingException e) {
+			e.printStackTrace();
+		}
+
+		ExtendedFileInfo file = files.get(info.fileId);
+
+		String userIdShare = info.userIdShare;
+		String fileId = info.fileId;
+
+		var uf = userFiles.computeIfAbsent(userIdShare, (k) -> new UserFiles());
+		synchronized (uf) {
+			uf.shared().add(fileId);
+			file.info().getSharedWith().add(userIdShare);
+		}
+	}
+
+	private void unshareFileKafka(String value) {
+		SharingInfo info = null;
+		try {
+			info = mapper.readValue(value, SharingInfo.class);
+		} catch (JsonProcessingException e) {
+			e.printStackTrace();
+		}
+
+		ExtendedFileInfo file = files.get(info.fileId);
+
+		String userIdShare = info.userIdShare;
+		String fileId = info.fileId;
+
+		var uf = userFiles.computeIfAbsent(userIdShare, (k) -> new UserFiles());
+		synchronized (uf) {
+			uf.shared().remove(fileId);
+			file.info().getSharedWith().remove(userIdShare);
+		}
+
 	}
 
 }

@@ -10,17 +10,16 @@ import tp2.api.FileInfo;
 import tp2.api.service.java.Directory;
 import tp2.api.service.java.Result.ErrorCode;
 import tp2.api.service.rest.RestDirectory;
-import tp2.impl.kafka.KafkaUtils;
 import tp2.impl.servers.common.JavaDirectory;
-import tp2.impl.servers.common.JavaDirectory.Operations;
-
-import static tp2.api.service.java.Result.redirect;
 
 @Singleton
 public class DirectoryResources extends RestResource implements RestDirectory {
 	private static Logger Log = Logger.getLogger(DirectoryResources.class.getName());
 
 	private static final String REST = "/rest/";
+
+	static final String KAFKA_BROKERS = "kafka:9092";
+	static final String FROM_BEGINNING = "earliest";
 
 	final Directory impl;
 
