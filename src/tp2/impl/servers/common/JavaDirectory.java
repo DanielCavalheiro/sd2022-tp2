@@ -103,14 +103,17 @@ public class JavaDirectory implements Directory, RecordProcessor {
 		}
 	}
 
-	final String replicaId = UUID.randomUUID().toString();
-	final KafkaPublisher sender = KafkaPublisher.createPublisher(KAFKA_BROKERS);
-	final KafkaSubscriber receiver = KafkaSubscriber.createSubscriber(KAFKA_BROKERS, Operations.toList(),
-			FROM_BEGINNING);
-	final SyncPoint<String> sync = new SyncPoint<>();
+	final String replicaId;
+	final KafkaPublisher sender;
+	final KafkaSubscriber receiver; 
+	final SyncPoint<String> sync;
 
 	public JavaDirectory() {
-		receiver.start(false, this);
+		replicaId = UUID.randomUUID().toString();
+		sender = KafkaPublisher.createPublisher(KAFKA_BROKERS);
+		receiver = KafkaSubscriber.createSubscriber(KAFKA_BROKERS, Operations.toList(),FROM_BEGINNING);
+		receiver.start(false,  (r) -> {onReceive(r);});
+		sync = new SyncPoint<>();
 	}
 
 	@Override
@@ -394,9 +397,16 @@ public class JavaDirectory implements Directory, RecordProcessor {
 			e.printStackTrace();
 		}
 
-		long version = sender.publish(operation.name(), replicaId, json);
-		var result = sync.waitForResult(version);
-		System.out.printf("Op: %s, version: %s, result: %s\n", operation, version, result);
+		long version = sender.publish(operation.name(), json);
+		new Thread(() -> {
+			String result="";
+			while(result.equals("")) {
+				result = sync.waitForResult(version);
+			}
+			System.out.printf("Op: %s, version: %s, result: %s\n", operation, version, result);
+		}).start();
+		
+		
 
 		return version;
 	}
@@ -407,7 +417,7 @@ public class JavaDirectory implements Directory, RecordProcessor {
 		System.out.printf("%s : processing: (%d, %s)\n", replicaId, version, r.value().toString());
 
 		Operations opName = Operations.findByName(r.topic());
-
+		System.out.println("---------------- "+ opName.name());
 		switch (opName) {
 			case WRITE_FILE -> writeFileKafka(r.value());
 			case DELETE_FILE -> deleteFileKafka(r.value());
@@ -420,7 +430,7 @@ public class JavaDirectory implements Directory, RecordProcessor {
 		}
 
 		// var result = "result of " + r.value();
-		sync.setResult(version, r.value());
+		sync.setResult(version, r.value().toString());
 	}
 
 	private void writeFileKafka(String value) {
@@ -431,6 +441,7 @@ public class JavaDirectory implements Directory, RecordProcessor {
 			e.printStackTrace();
 		}
 		String fileId = file.fileId;
+		System.out.println(">><<<<<<<>>>><<<<<>>>>><<> "+ fileId);
 		files.put(fileId, file);
 
 		String userId = file.info.getOwner();
