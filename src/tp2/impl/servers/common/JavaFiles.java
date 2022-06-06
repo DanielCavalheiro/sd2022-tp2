@@ -27,15 +27,15 @@ public class JavaFiles implements Files {
 
 	@Override
 	public Result<byte[]> getFile(String fileId, String token) {
-		System.out.println(token);
-		String[] tokenAndTime = token.split("\\$\\$\\$");
-		System.out.println("----------" + tokenAndTime[0]);
-		System.out.println("----------" + tokenAndTime[1]);
-		String actualToken = tokenAndTime[0];
-		String time = tokenAndTime[1];
+		// System.out.println(token);
+		// String[] tokenAndTime = token.split("\\$\\$\\$");
+		// System.out.println("----------" + tokenAndTime[0]);
+		// System.out.println("----------" + tokenAndTime[1]);
+		// String actualToken = tokenAndTime[0];
+		// String time = tokenAndTime[1];
 
-		if (!Hash.of(Token.get(), time, fileId).equals(actualToken))
-			return error(Result.ErrorCode.FORBIDDEN);
+		// if (!Hash.of(Token.get(), time, fileId).equals(actualToken))
+		// 	return error(Result.ErrorCode.FORBIDDEN);
 
 		fileId = fileId.replace(DELIMITER, "/");
 		byte[] data = IO.read(new File(ROOT + fileId));
