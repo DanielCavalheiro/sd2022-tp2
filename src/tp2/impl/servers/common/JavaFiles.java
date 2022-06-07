@@ -46,9 +46,11 @@ public class JavaFiles implements Files {
 	public Result<Void> deleteFile(String fileId, String token) {
 		String[] tokenAndTime = token.split("\\$\\$\\$");
 		String actualToken = tokenAndTime[0];
-		String time = tokenAndTime[1];
+		String Oldtime = tokenAndTime[1];
+		long elapsedTime = System.nanoTime() - Long.parseLong(Oldtime);
 
-		if (!Hash.of(Token.get(), time, fileId).equals(actualToken))
+		if (!Hash.of(Token.get(), Oldtime, fileId).equals(actualToken)
+				|| TimeUnit.SECONDS.convert(elapsedTime, TimeUnit.NANOSECONDS) > 10.0)
 			return error(Result.ErrorCode.FORBIDDEN);
 
 		fileId = fileId.replace(DELIMITER, "/");
@@ -60,9 +62,11 @@ public class JavaFiles implements Files {
 	public Result<Void> writeFile(String fileId, byte[] data, String token) {
 		String[] tokenAndTime = token.split("\\$\\$\\$");
 		String actualToken = tokenAndTime[0];
-		String time = tokenAndTime[1];
+		String Oldtime = tokenAndTime[1];
+		long elapsedTime = System.nanoTime() - Long.parseLong(Oldtime);
 
-		if (!Hash.of(Token.get(), time, fileId).equals(actualToken))
+		if (!Hash.of(Token.get(), Oldtime, fileId).equals(actualToken)
+				|| TimeUnit.SECONDS.convert(elapsedTime, TimeUnit.NANOSECONDS) > 10.0)
 			return error(Result.ErrorCode.FORBIDDEN);
 
 		fileId = fileId.replace(DELIMITER, "/");
@@ -76,9 +80,10 @@ public class JavaFiles implements Files {
 	public Result<Void> deleteUserFiles(String userId, String token) {
 		String[] tokenAndTime = token.split("\\$\\$\\$");
 		String actualToken = tokenAndTime[0];
-		String time = tokenAndTime[1];
+		String Oldtime = tokenAndTime[1];
+		long elapsedTime = System.nanoTime() - Long.parseLong(Oldtime);
 
-		if (!Hash.of(Token.get(), time, userId).equals(actualToken))
+		if (!Hash.of(Token.get(), Oldtime, userId).equals(actualToken) || TimeUnit.SECONDS.convert(elapsedTime, TimeUnit.NANOSECONDS) > 10.0)
 			return error(Result.ErrorCode.FORBIDDEN);
 
 		File file = new File(ROOT + userId);
