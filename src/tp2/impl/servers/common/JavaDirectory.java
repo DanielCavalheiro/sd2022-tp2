@@ -166,7 +166,7 @@ public class JavaDirectory implements Directory, RecordProcessor {
 			files.put(fileId, file = new ExtendedFileInfo(uris, fileId, info));
 
 			if (serverSucc > 1) {
-				sentToKafkaTopic(Topics.WRITE_FILE, file);
+				long vers = sentToKafkaTopic(Topics.WRITE_FILE, file);
 				return ok(file.info());
 			}
 
@@ -290,7 +290,7 @@ public class JavaDirectory implements Directory, RecordProcessor {
 		String uriString = "";
 		for (URI uri : validUris) {
 			String url = String.format("%s/files/%s", uri, fileId);
-			uriString += url + "###";
+			uriString += url +  "###";
 		}
 
 		uriString.substring(0, uriString.length() - 3);
@@ -435,7 +435,7 @@ public class JavaDirectory implements Directory, RecordProcessor {
 		long version = sender.publish(operation.name(), json);
 		new Thread(() -> {
 			String result = "";
-			while (result.equals("")) {
+			while (result != null && result.equals("")) {
 				result = sync.waitForResult(version);
 			}
 			System.out.printf("Op: %s, version: %s, result: %s\n", operation, version, result);
@@ -450,7 +450,6 @@ public class JavaDirectory implements Directory, RecordProcessor {
 		System.out.printf("%s : processing: (%d, %s)\n", replicaId, version, r.value().toString());
 
 		Topics opName = Topics.findByName(r.topic());
-		System.out.println("---------------- " + opName.name());
 		switch (opName) {
 			case WRITE_FILE -> writeFileKafka(r.value());
 			case DELETE_FILE -> deleteFileKafka(r.value());
@@ -582,7 +581,7 @@ public class JavaDirectory implements Directory, RecordProcessor {
 		}).start();;
 	}
 
-	private record JavaDirectoryData(long serverVer, 
+	record JavaDirectoryData(long serverVer, 
 		Map<String, ExtendedFileInfo> files, 
 		Map<String, UserFiles> userFiles) {}
 
