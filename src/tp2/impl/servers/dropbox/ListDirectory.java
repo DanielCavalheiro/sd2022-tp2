@@ -21,7 +21,7 @@ public class ListDirectory {
 
 	private static final String apiKey = "7xabutsco4qlge6";
 	private static final String apiSecret = "zlc0lxwg809kpf6";
-	private static final String accessTokenStr = "sl.BIpYksin8Qa_ItjA0zTL4lEvheHFI9x5H9xoevzQZEVJ2LOKSXzJBFvktDrtZgjuQWqSBAuchgaC4vxdznY9O0MdaBDxDSI8KofaRIMkB8df81QWZtM6L5SlkHPPgPNaFNvZhhU";
+	private static final String accessTokenStr = "sl.BJHimO8j5roSf6bIawfn1Q8vYEAViFk8Lt5tFcjZ0V96_vAGC-3bxvczbRG5tvgvvNSBB3-TlZKpFw0YYTE0wSj4oZYNt5Uj6J9udbZAZs2Q6tduv9uwDDeN9M72dM5jgUZgtgw";
 
 	private static final String LIST_FOLDER_URL = "https://api.dropboxapi.com/2/files/list_folder";
 	private static final String LIST_FOLDER_CONTINUE_URL = "https://api.dropboxapi.com/2/files/list_folder/continue";

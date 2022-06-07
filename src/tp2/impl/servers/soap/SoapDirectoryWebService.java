@@ -63,11 +63,11 @@ public class SoapDirectoryWebService extends SoapWebService implements SoapDirec
 		Log.info(String.format("SOAP getFile: filename = %s, userId = %s, accUserId = %s, password =%s\n", filename,
 				userId, accUserId, password));
 
-		
 		var res = impl.getFile(filename, userId, accUserId, password);
-		if( res.error() == ErrorCode.REDIRECT) {
+		String token = JavaDirectory.generateToken(JavaDirectory.fileId(filename, userId));
+		if (res.error() == ErrorCode.REDIRECT) {
 			String location = res.errorValue();
-			res = FilesClients.get( location ).getFile( JavaDirectory.fileId(filename, userId), password);
+			res = FilesClients.get(location).getFile(JavaDirectory.fileId(filename, userId), token);
 		}
 		return super.resultOrThrow(res, DirectoryException::new);
 	}
