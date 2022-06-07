@@ -27,15 +27,12 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import org.apache.kafka.clients.consumer.ConsumerRecord;
-import org.apache.kafka.common.memory.GarbageCollectedMemoryPool;
-import org.glassfish.jersey.server.ResourceConfig;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
-import com.google.gson.Gson;
 
 import java.util.UUID;
 
@@ -48,7 +45,7 @@ import tp2.impl.kafka.KafkaPublisher;
 import tp2.impl.kafka.KafkaSubscriber;
 import tp2.impl.kafka.RecordProcessor;
 import tp2.impl.kafka.sync.SyncPoint;
-import tp2.impl.servers.rest.DirectoryRestServer;
+
 import util.Hash;
 import util.Sleep;
 import util.Token;
@@ -122,12 +119,10 @@ public class JavaDirectory implements Directory, RecordProcessor {
 			onReceive(r);
 		});
 		sync = new SyncPoint<>();
-		System.out.println(replicaId);
 
-		serverVer=0;
+		serverVer = 0;
 		garbageCollect();
 	}
-
 
 	@Override
 	public Result<FileInfo> writeFile(String filename, byte[] data, String userId, String password) {
@@ -290,7 +285,7 @@ public class JavaDirectory implements Directory, RecordProcessor {
 		String uriString = "";
 		for (URI uri : validUris) {
 			String url = String.format("%s/files/%s", uri, fileId);
-			uriString += url +  "###";
+			uriString += url + "###";
 		}
 
 		uriString.substring(0, uriString.length() - 3);
@@ -460,7 +455,7 @@ public class JavaDirectory implements Directory, RecordProcessor {
 			default -> throw new IllegalArgumentException("Unexpected value: " + opName);
 		}
 		serverVer++;
-		
+
 		sync.setResult(version, r.value().toString());
 	}
 
@@ -479,7 +474,7 @@ public class JavaDirectory implements Directory, RecordProcessor {
 		synchronized (uf) {
 			uf.owned.add(fileId);
 		}
-		
+
 	}
 
 	private void deleteFileKafka(String value) {
@@ -505,7 +500,7 @@ public class JavaDirectory implements Directory, RecordProcessor {
 			}
 
 		}
-		
+
 	}
 
 	private void deleteUserFilesKafka(String value) {
@@ -523,8 +518,7 @@ public class JavaDirectory implements Directory, RecordProcessor {
 				var fileAux = files.remove(id);
 				removeSharesOfFile(fileAux);
 			}
-		
-		
+
 	}
 
 	private void shareFileKafka(String value) {
@@ -545,7 +539,7 @@ public class JavaDirectory implements Directory, RecordProcessor {
 			uf.shared().add(fileId);
 			file.info().getSharedWith().add(userIdShare);
 		}
-		
+
 	}
 
 	private void unshareFileKafka(String value) {
@@ -566,24 +560,26 @@ public class JavaDirectory implements Directory, RecordProcessor {
 			uf.shared().remove(fileId);
 			file.info().getSharedWith().remove(userIdShare);
 		}
-		
+
 	}
 
 	private void garbageCollect() {
 		new Thread(() -> {
 
-			for(;;){
+			for (;;) {
 				Sleep.ms(GARBAGE_COLLECT_TIMER);
 
 				sentToKafkaTopic(Topics.SYNC_SERVERS, new JavaDirectoryData(serverVer, files, userFiles));
 			}
-			
-		}).start();;
+
+		}).start();
+		;
 	}
 
-	record JavaDirectoryData(long serverVer, 
-		Map<String, ExtendedFileInfo> files, 
-		Map<String, UserFiles> userFiles) {}
+	record JavaDirectoryData(long serverVer,
+			Map<String, ExtendedFileInfo> files,
+			Map<String, UserFiles> userFiles) {
+	}
 
 	private void syncWithMoreRecent(String value) {
 		JavaDirectoryData data = null;
@@ -593,12 +589,12 @@ public class JavaDirectory implements Directory, RecordProcessor {
 			e.printStackTrace();
 		}
 
-		if(serverVer < data.serverVer){
+		if (serverVer < data.serverVer) {
 			synchronized (files) {
 				files.clear();
 				files.putAll(data.files);
 			}
-			synchronized (userFiles){
+			synchronized (userFiles) {
 				userFiles.clear();
 				userFiles.putAll(data.userFiles);
 			}

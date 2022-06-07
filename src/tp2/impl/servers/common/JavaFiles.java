@@ -9,6 +9,7 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.Comparator;
+import java.util.concurrent.TimeUnit;
 
 import tp2.api.service.java.Files;
 import tp2.api.service.java.Result;
@@ -27,14 +28,13 @@ public class JavaFiles implements Files {
 
 	@Override
 	public Result<byte[]> getFile(String fileId, String token) {
-		System.out.println(token);
 		String[] tokenAndTime = token.split("\\$\\$\\$");
-		System.out.println("----------" + tokenAndTime[0]);
-		System.out.println("----------" + tokenAndTime[1]);
 		String actualToken = tokenAndTime[0];
-		String time = tokenAndTime[1];
+		String Oldtime = tokenAndTime[1];
+		long elapsedTime = System.nanoTime() - Long.parseLong(Oldtime);
 
-		if (!Hash.of(Token.get(), time, fileId).equals(actualToken))
+		if (!Hash.of(Token.get(), Oldtime, fileId).equals(actualToken)
+				|| TimeUnit.SECONDS.convert(elapsedTime, TimeUnit.NANOSECONDS) > 10.0)
 			return error(Result.ErrorCode.FORBIDDEN);
 
 		fileId = fileId.replace(DELIMITER, "/");

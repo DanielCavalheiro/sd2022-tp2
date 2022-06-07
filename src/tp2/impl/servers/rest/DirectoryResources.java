@@ -11,9 +11,6 @@ import tp2.api.service.java.Directory;
 import tp2.api.service.java.Result.ErrorCode;
 import tp2.api.service.rest.RestDirectory;
 import tp2.impl.servers.common.JavaDirectory;
-import tp2.impl.servers.common.JavaFiles;
-import util.Hash;
-import util.Token;
 
 import static tp2.api.service.java.Result.redirect;
 
@@ -32,7 +29,7 @@ public class DirectoryResources extends RestResource implements RestDirectory {
 		impl = new JavaDirectory();
 	}
 
-	public FileInfo writeFile(String filename, byte[] data, String userId, String password) {
+	public FileInfo writeFile(Long version, String filename, byte[] data, String userId, String password) {
 		Log.info(String.format("REST writeFile: filename = %s, data.length = %d, userId = %s, password = %s \n",
 				filename, data.length, userId, password));
 
@@ -70,7 +67,9 @@ public class DirectoryResources extends RestResource implements RestDirectory {
 
 		var res = impl.getFile(filename, userId, accUserId, password);
 		String uriString = res.errorValue();
-		String[] locations = uriString.split("\\#\\#\\#");
+		String[] locations = {};
+		if (uriString != null)
+			locations = uriString.split("\\#\\#\\#");
 		String token = JavaDirectory.generateToken(JavaDirectory.fileId(filename, userId));
 		if (res.error() == ErrorCode.REDIRECT) {
 			for (String location : locations) {
@@ -82,9 +81,9 @@ public class DirectoryResources extends RestResource implements RestDirectory {
 				}
 			}
 
-		}
-		if (!res.isOK()) {
-			res = redirect(locations[0]+"?token="+token);
+			if (!res.isOK()) {
+				res = redirect(locations[0] + "?token=" + token);
+			}
 		}
 
 		return super.resultOrThrow(res);

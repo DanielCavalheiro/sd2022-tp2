@@ -14,9 +14,8 @@ import tp2.api.service.rest.RestDirectory;
 
 public class RestDirectoryClient extends RestClient implements Directory {
 
-
 	private static final String SHARE = "share";
-	
+
 	public RestDirectoryClient(URI serverUri) {
 		super(serverUri, RestDirectory.PATH);
 	}
@@ -27,9 +26,11 @@ public class RestDirectoryClient extends RestClient implements Directory {
 				.path(filename)
 				.queryParam(RestDirectory.PASSWORD, password)
 				.request()
+				.header(RestDirectory.HEADER_VERSION, 1)
 				.accept(MediaType.APPLICATION_JSON)
-				.post(Entity.entity( data, MediaType.APPLICATION_OCTET_STREAM));
-		return super.toJavaResult(r, new GenericType<FileInfo>() {});
+				.post(Entity.entity(data, MediaType.APPLICATION_OCTET_STREAM));
+		return super.toJavaResult(r, new GenericType<FileInfo>() {
+		});
 	}
 
 	@Override
@@ -47,10 +48,10 @@ public class RestDirectoryClient extends RestClient implements Directory {
 		Response r = target.path(userId)
 				.path(filename)
 				.path(SHARE)
-				.path( userIdShare)
+				.path(userIdShare)
 				.queryParam(RestDirectory.PASSWORD, password)
 				.request()
-				.post(Entity.json(null));		
+				.post(Entity.json(null));
 		return super.toJavaResult(r);
 	}
 
@@ -59,7 +60,7 @@ public class RestDirectoryClient extends RestClient implements Directory {
 		Response r = target.path(userId)
 				.path(filename)
 				.path(SHARE)
-				.path( userIdShare)
+				.path(userIdShare)
 				.queryParam(RestDirectory.PASSWORD, password)
 				.request()
 				.delete();
@@ -75,7 +76,8 @@ public class RestDirectoryClient extends RestClient implements Directory {
 				.request()
 				.accept(MediaType.APPLICATION_OCTET_STREAM)
 				.get();
-		return super.toJavaResult(r, new GenericType<byte[]>() {});
+		return super.toJavaResult(r, new GenericType<byte[]>() {
+		});
 	}
 
 	@Override
@@ -85,7 +87,8 @@ public class RestDirectoryClient extends RestClient implements Directory {
 				.request()
 				.accept(MediaType.APPLICATION_JSON)
 				.get();
-		return super.toJavaResult(r, new GenericType<List<FileInfo>>() {});
+		return super.toJavaResult(r, new GenericType<List<FileInfo>>() {
+		});
 	}
 
 	@Override

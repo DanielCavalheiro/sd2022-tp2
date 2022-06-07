@@ -9,7 +9,6 @@ import jakarta.ws.rs.core.Response;
 import tp2.api.service.java.Files;
 import tp2.api.service.java.Result;
 import tp2.api.service.rest.RestFiles;
-import tp2.impl.servers.common.JavaFiles;
 
 public class RestFilesClient extends RestClient implements Files {
 

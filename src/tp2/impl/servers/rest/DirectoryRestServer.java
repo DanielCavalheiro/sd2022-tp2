@@ -5,10 +5,8 @@ import java.util.logging.Logger;
 
 import org.glassfish.jersey.server.ResourceConfig;
 
-import tp2.impl.servers.common.JavaDirectory;
 import tp2.api.service.java.Directory;
-import tp2.impl.kafka.KafkaPublisher;
-import tp2.impl.kafka.KafkaSubscriber;
+import tp2.impl.kafka.sync.SyncPoint;
 import tp2.impl.servers.rest.util.GenericExceptionMapper;
 import util.Debug;
 import util.Token;
@@ -27,6 +25,7 @@ public class DirectoryRestServer extends AbstractRestServer {
 	@Override
 	void registerResources(ResourceConfig config) {
 		config.register(new DirectoryResources());
+		config.register(new VersionFilter(SyncPoint.getInstance()));
 		config.register(GenericExceptionMapper.class);
 		// config.register( CustomLoggingFilter.class);
 	}

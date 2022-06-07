@@ -1,8 +1,5 @@
 package tp2.impl.servers.dropbox;
 
-import java.util.ArrayList;
-import java.util.List;
-
 import com.github.scribejava.core.builder.ServiceBuilder;
 import com.github.scribejava.core.model.OAuth2AccessToken;
 import com.github.scribejava.core.model.OAuthRequest;
@@ -14,7 +11,6 @@ import com.google.gson.Gson;
 import org.pac4j.scribe.builder.api.DropboxApi20;
 
 import tp2.impl.servers.dropbox.msgs.DownloadArgs;
-import tp2.impl.servers.dropbox.msgs.DownloadReturn;
 
 public class DownloadFile {
 

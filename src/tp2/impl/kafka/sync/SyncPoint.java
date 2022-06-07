@@ -10,7 +10,7 @@ public class SyncPoint<T> {
 	synchronized public static <T> SyncPoint<T> getInstance() {
 		if (instance == null)
 			instance = new SyncPoint<>();
-		return (SyncPoint<T>)instance;
+		return (SyncPoint<T>) instance;
 	}
 
 	private long version = -1L;
@@ -38,7 +38,7 @@ public class SyncPoint<T> {
 	 */
 	public synchronized T waitForResult(long n) {
 		waitForVersion(n, Integer.MAX_VALUE);
-		return results.remove( n );
+		return results.remove(n);
 	}
 
 	/**
@@ -49,7 +49,7 @@ public class SyncPoint<T> {
 		version = n;
 		this.notifyAll();
 	}
-	
+
 	/**
 	 * Updates the version
 	 */

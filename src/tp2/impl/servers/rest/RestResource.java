@@ -50,8 +50,7 @@ public class RestResource {
 
 	static private void doRedirect(Result<?> result) throws WebApplicationException {
 		String location = result.errorValue();
-		System.out.println("+-+-+-+-++.+.+.+-+-+.+.-++.+----" + location);
-		var uri = URI.create( location);
+		var uri = URI.create(location);
 		throw new WebApplicationException(Response.temporaryRedirect(uri).build());
 	}
 }

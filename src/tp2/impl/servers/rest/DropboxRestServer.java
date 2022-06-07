@@ -1,16 +1,11 @@
 package tp2.impl.servers.rest;
 
-import java.net.URI;
-import java.util.Optional;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import org.glassfish.jersey.server.ResourceConfig;
 
-import tp2.impl.clients.Clients;
 import tp2.api.service.java.Files;
-import tp2.api.service.java.Result;
-import tp2.impl.servers.common.JavaFiles;
 import tp2.impl.servers.dropbox.CreateDirectory;
 import tp2.impl.servers.dropbox.DeleteDirectoryOrFile;
 import tp2.impl.servers.dropbox.ListDirectory;

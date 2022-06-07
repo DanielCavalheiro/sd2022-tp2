@@ -1,17 +1,12 @@
 package tp2.impl.servers.common;
 
-import java.util.List;
-
 import tp2.api.service.java.Files;
 import tp2.api.service.java.Result;
-import tp2.api.service.rest.RestFiles;
 import tp2.impl.servers.dropbox.CreateDirectory;
 import tp2.impl.servers.dropbox.DeleteDirectoryOrFile;
 import tp2.impl.servers.dropbox.DownloadFile;
 import tp2.impl.servers.dropbox.ListDirectory;
 import tp2.impl.servers.dropbox.UploadFile;
-import util.Hash;
-import util.Token;
 
 public class JavaDropbox implements Files {
 
